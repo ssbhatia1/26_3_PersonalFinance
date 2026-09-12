@@ -126,7 +126,7 @@ class AuthNotifier extends Notifier<AuthState> {
       state = state.copyWith(
         user: user,
         isLoading: false,
-        infoMessage: 'Welcome to your financial hub, ${user.fullName}!',
+        infoMessage: 'Welcome, ${user.fullName}!',
       );
       _syncUserFinancialData(user);
       return true;
@@ -147,7 +147,7 @@ class AuthNotifier extends Notifier<AuthState> {
       state = state.copyWith(
         isLoading: false,
         lastResetCode: code,
-        infoMessage: 'Verification code generated. Code: $code',
+        infoMessage: 'Your reset code is: $code',
       );
       return true;
     } catch (e) {
@@ -175,7 +175,7 @@ class AuthNotifier extends Notifier<AuthState> {
       state = state.copyWith(
         isLoading: false,
         clearResetCode: true,
-        infoMessage: 'Password successfully reset! Please login with your new credentials.',
+        infoMessage: 'Password reset successfully! You can now sign in with your new password.',
       );
       return true;
     } catch (e) {

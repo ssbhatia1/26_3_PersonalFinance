@@ -91,7 +91,7 @@ class AuthRepository {
     );
 
     if (rows.isEmpty) {
-      throw Exception('Account not found. Please check your credentials or sign up.');
+      throw Exception('Account not found. Please check your username and password or sign up.');
     }
 
     final user = User.fromMap(rows.first);

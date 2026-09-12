@@ -148,7 +148,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       scaffold.showSnackBar(
         SnackBar(
           content: Text(
-            'Backup restored successfully! ${counts['accounts']} accounts, ${counts['transactions']} transactions imported.${restoredUsername != null ? ' Ready to log in as $restoredUsername.' : ''}',
+            'Your data was restored successfully! ${counts['accounts']} accounts and ${counts['transactions']} transactions loaded.${restoredUsername != null ? ' You can now sign in as $restoredUsername.' : ''}',
           ),
           backgroundColor: AppColors.income,
           duration: const Duration(seconds: 4),
@@ -242,7 +242,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               ),
               const SizedBox(height: 20),
               const Text(
-                'Personal Finance\nLedger',
+                'Personal Finance',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 30,
@@ -252,7 +252,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               ),
               const SizedBox(height: 12),
               Text(
-                'High-performance offline-first accounting, advanced analytics, and zero-compromise data privacy.',
+                'A simple and safe way to track your daily expenses, manage your family budget, and save money.',
                 style: TextStyle(
                   color: Colors.white.withOpacity(0.9),
                   fontSize: 14,
@@ -264,13 +264,13 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           const SizedBox(height: 40),
           Column(
             children: [
-              _buildFeatureRow(Icons.lock_rounded, 'Multi-round SHA-256 salted credentials'),
+              _buildFeatureRow(Icons.lock_rounded, 'Secure password protection'),
               const SizedBox(height: 12),
-              _buildFeatureRow(Icons.token_rounded, 'Cryptographic session tokenization'),
+              _buildFeatureRow(Icons.visibility_off_rounded, 'Your private data stays on your device'),
               const SizedBox(height: 12),
-              _buildFeatureRow(Icons.insights_rounded, 'Real-time multi-dimensional analytics'),
+              _buildFeatureRow(Icons.insights_rounded, 'Clear charts for income and spending'),
               const SizedBox(height: 12),
-              _buildFeatureRow(Icons.sync_rounded, 'Instant local module synchronization'),
+              _buildFeatureRow(Icons.account_balance_wallet_rounded, 'Keep track of all your accounts in one place'),
             ],
           ),
           const SizedBox(height: 32),
@@ -283,11 +283,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.security, color: Colors.white, size: 18),
+                const Icon(Icons.check_circle_outline, color: Colors.white, size: 18),
                 const SizedBox(width: 8),
                 Flexible(
                   child: Text(
-                    '100% Encrypted & Local Database',
+                    'Private & Works Offline Without Internet',
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.95),
                       fontSize: 12,
@@ -351,11 +351,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Personal Finance Ledger',
+                'Personal Finance',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               Text(
-                'Secure Authentication Hub',
+                'Welcome! Please sign in to continue',
                 style: TextStyle(fontSize: 12, color: Colors.grey),
               ),
             ],
@@ -456,11 +456,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Have an existing backup?',
+                          'Have a saved backup?',
                           style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                         ),
                         Text(
-                          'Restore offline database from .json file',
+                          'Bring back your data from a backup file',
                           style: TextStyle(fontSize: 11, color: Colors.grey),
                         ),
                       ],
@@ -474,7 +474,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     ),
                     onPressed: () => _handleRestoreBackup(context),
                     icon: const Icon(Icons.file_open_rounded, size: 14),
-                    label: const Text('Restore File', style: TextStyle(fontSize: 12)),
+                    label: const Text('Load Backup', style: TextStyle(fontSize: 12)),
                   ),
                 ],
               ),
@@ -512,12 +512,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const Text(
-            'Sign In',
+            'Welcome Back',
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 6),
           const Text(
-            'Enter your credentials to access your financial dashboard',
+            'Please enter your username and password to open your account',
             style: TextStyle(fontSize: 13, color: Colors.grey),
           ),
           const SizedBox(height: 24),
@@ -597,7 +597,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           ),
           const SizedBox(height: 6),
           const Text(
-            'Start tracking wealth with private, offline-first security',
+            'Set up your profile to start tracking your money',
             style: TextStyle(fontSize: 13, color: Colors.grey),
           ),
           const SizedBox(height: 20),
@@ -675,7 +675,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                   )
-                : const Text('Sign Up & Launch', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                : const Text('Create Account', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(height: 16),
           Wrap(
@@ -701,12 +701,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const Text(
-            'Reset Password',
+            'Forgot Password',
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 6),
           const Text(
-            'Enter your registered email to receive a secure 6-digit verification token.',
+            'Enter your email address and we will generate a 6-digit code to help you reset your password.',
             style: TextStyle(fontSize: 13, color: Colors.grey),
           ),
           const SizedBox(height: 24),
@@ -714,7 +714,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             controller: _forgotEmailController,
             keyboardType: TextInputType.emailAddress,
             decoration: const InputDecoration(
-              labelText: 'Registered Email',
+              labelText: 'Your Email Address',
               prefixIcon: Icon(Icons.email_outlined, size: 20),
             ),
             validator: (v) => (v == null || !v.contains('@')) ? 'Please enter a valid email' : null,
@@ -729,7 +729,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                   )
-                : const Text('Generate Reset Code', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                : const Text('Get Reset Code', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(height: 16),
           Wrap(
@@ -755,12 +755,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const Text(
-            'Enter Reset Code',
+            'Choose New Password',
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 6),
           const Text(
-            'Verify the 6-digit code and choose a strong new password.',
+            'Enter the 6-digit code and choose your new password.',
             style: TextStyle(fontSize: 13, color: Colors.grey),
           ),
           const SizedBox(height: 20),
@@ -778,11 +778,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             keyboardType: TextInputType.number,
             maxLength: 6,
             decoration: const InputDecoration(
-              labelText: '6-Digit Verification Code',
+              labelText: '6-Digit Code',
               prefixIcon: Icon(Icons.pin_outlined, size: 20),
               counterText: '',
             ),
-            validator: (v) => (v == null || v.trim().length != 6) ? 'Enter 6-digit code' : null,
+            validator: (v) => (v == null || v.trim().length != 6) ? 'Please enter the 6-digit code' : null,
           ),
           const SizedBox(height: 14),
           TextFormField(
@@ -808,12 +808,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                   )
-                : const Text('Update Password & Sign In', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                : const Text('Save Password & Sign In', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(height: 16),
           TextButton(
             onPressed: () => _switchMode(AuthMode.login),
-            child: const Text('Cancel and Return to Sign In'),
+            child: const Text('Back to Sign In'),
           ),
         ],
       ),
