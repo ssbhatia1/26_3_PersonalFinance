@@ -1,0 +1,367 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. 1.0.0 or v1.0.0; leave blank to read from pubspec.yaml)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+  actions: write
+
+env:
+  PROJECT_NAME: "26_3_PersonalFinance"
+
+jobs:
+  # =========================================================================
+  # 1. Resolve Version Information
+  # =========================================================================
+  versions:
+    name: Resolve Version
+    runs-on: ubuntu-latest
+    outputs:
+      version-name: ${{ steps.resolve.outputs.version-name }}
+      tag-name: ${{ steps.resolve.outputs.tag-name }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Resolve version and tag
+        id: resolve
+        shell: bash
+        run: |
+          INPUT_VER="${{ inputs.version }}"
+          REF_NAME="${{ github.ref_name }}"
+          if [ -n "$INPUT_VER" ]; then
+            RAW="$INPUT_VER"
+          elif [[ "$REF_NAME" == v* ]]; then
+            RAW="$REF_NAME"
+          else
+            PUB_VER=$(grep '^version:' pubspec.yaml | sed 's/version:[[:space:]]*//; s/+.*//; s/[[:space:]]//g')
+            RAW="${PUB_VER:-1.0.0}"
+          fi
+          CLEAN_VER="${RAW#v}"
+          TAG_VER="v${CLEAN_VER}"
+          echo "version-name=${CLEAN_VER}" >> "$GITHUB_OUTPUT"
+          echo "tag-name=${TAG_VER}" >> "$GITHUB_OUTPUT"
+          echo "::notice::Resolved version name: ${CLEAN_VER}, tag: ${TAG_VER}"
+
+  # =========================================================================
+  # 2. Windows Build (Installer .exe + Portable .zip)
+  # =========================================================================
+  build-windows:
+    name: Build Windows (x64)
+    needs: versions
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Enable Windows desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Windows release binary
+        run: flutter build windows --release --build-name ${{ needs.versions.outputs.version-name }} --build-number ${{ github.run_number }}
+
+      - name: Package Windows Installer & Portable Archive
+        shell: pwsh
+        run: |
+          $distDir = Join-Path $env:GITHUB_WORKSPACE "build\dist"
+          if (-not (Test-Path $distDir)) {
+            New-Item -ItemType Directory -Path $distDir -Force | Out-Null
+          }
+
+          # Check / Install Inno Setup
+          $isccPath = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $isccPath)) {
+            Write-Host "Installing Inno Setup compiler via Chocolatey..."
+            choco install innosetup -y --no-progress
+          }
+
+          Write-Host "Compiling Windows Setup Wizard (.exe) with Next-Next-Install flow..."
+          & $isccPath `
+            "/DMyAppVersion=${{ needs.versions.outputs.version-name }}" `
+            "/DMyAppSourceDir=$env:GITHUB_WORKSPACE\build\windows\x64\runner\Release" `
+            "/O$distDir" `
+            "/F${{ env.PROJECT_NAME }}-Windows-x64" `
+            "$env:GITHUB_WORKSPACE\windows\installer\setup.iss"
+
+          # Inno Setup generates OutputBaseFilename.exe (or setup.exe)
+          $installerPath = Join-Path $distDir "${{ env.PROJECT_NAME }}-Windows-x64.exe"
+          if (-not (Test-Path $installerPath)) {
+            $createdExe = Get-ChildItem -Path $distDir -Filter "*.exe" | Select-Object -First 1
+            if ($createdExe) {
+              Move-Item -Path $createdExe.FullName -Destination $installerPath -Force
+            }
+          }
+
+          Write-Host "Creating Windows portable ZIP archive..."
+          Compress-Archive `
+            -Path "$env:GITHUB_WORKSPACE\build\windows\x64\runner\Release\*" `
+            -DestinationPath "$distDir\${{ env.PROJECT_NAME }}-Windows-x64.zip" `
+            -Force
+
+          Write-Host "Generated Windows distribution files:"
+          Get-ChildItem -Path $distDir
+
+      - name: Upload Windows Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PROJECT_NAME }}-windows
+          path: build/dist/*
+          retention-days: 14
+
+  # =========================================================================
+  # 3. Linux Build (Debian .deb + Portable .zip)
+  # =========================================================================
+  build-linux:
+    name: Build Linux (.deb & .zip)
+    needs: versions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Linux build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libgtk-3-dev zip
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Enable Linux desktop
+        run: flutter config --enable-linux-desktop
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Linux release bundle
+        run: flutter build linux --release --build-name ${{ needs.versions.outputs.version-name }} --build-number ${{ github.run_number }}
+
+      - name: Package Linux .deb & .zip
+        shell: bash
+        run: |
+          mkdir -p build/dist
+          chmod +x linux/packaging/build_deb.sh
+          ./linux/packaging/build_deb.sh "${{ needs.versions.outputs.version-name }}" "$GITHUB_WORKSPACE/build/dist" "${{ env.PROJECT_NAME }}"
+
+          cd build/linux/x64/release/bundle
+          zip -r "$GITHUB_WORKSPACE/build/dist/${{ env.PROJECT_NAME }}-Linux-x64.zip" .
+          tar -czf "$GITHUB_WORKSPACE/build/dist/${{ env.PROJECT_NAME }}-Linux-x64.tar.gz" .
+
+          echo "Generated Linux distribution files:"
+          ls -lh "$GITHUB_WORKSPACE/build/dist"
+
+      - name: Upload Linux Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PROJECT_NAME }}-linux
+          path: build/dist/*
+          retention-days: 14
+
+  # =========================================================================
+  # 4. macOS Build (DMG Installer + Portable .zip)
+  # =========================================================================
+  build-macos:
+    name: Build macOS (.dmg & .zip)
+    needs: versions
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Enable macOS desktop
+        run: flutter config --enable-macos-desktop
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build macOS release application
+        run: flutter build macos --release --build-name ${{ needs.versions.outputs.version-name }} --build-number ${{ github.run_number }}
+
+      - name: Package macOS .dmg & .zip
+        shell: bash
+        run: |
+          chmod +x macos/packaging/build_dmg.sh
+          ./macos/packaging/build_dmg.sh "${{ needs.versions.outputs.version-name }}" "$GITHUB_WORKSPACE/build/dist" "${{ env.PROJECT_NAME }}"
+
+          echo "Generated macOS distribution files:"
+          ls -lh "$GITHUB_WORKSPACE/build/dist"
+
+      - name: Upload macOS Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PROJECT_NAME }}-macos
+          path: build/dist/*
+          retention-days: 14
+
+  # =========================================================================
+  # 5. Android Build (Release .apk)
+  # =========================================================================
+  build-android:
+    name: Build Android (.apk)
+    needs: versions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Android Release APK
+        run: flutter build apk --release --build-name ${{ needs.versions.outputs.version-name }} --build-number ${{ github.run_number }}
+
+      - name: Prepare Android Artifact
+        shell: bash
+        run: |
+          mkdir -p build/dist
+          cp build/app/outputs/flutter-apk/app-release.apk "build/dist/${{ env.PROJECT_NAME }}-Android.apk"
+          echo "Generated Android APK:"
+          ls -lh build/dist
+
+      - name: Upload Android Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PROJECT_NAME }}-android
+          path: build/dist/*
+          retention-days: 14
+
+  # =========================================================================
+  # 6. iOS Build (Release .ipa)
+  # =========================================================================
+  build-ios:
+    name: Build iOS (.ipa)
+    needs: versions
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build iOS Release App (unsigned for CI distribution)
+        run: flutter build ios --release --no-codesign --build-name ${{ needs.versions.outputs.version-name }} --build-number ${{ github.run_number }}
+
+      - name: Package iOS .ipa Payload
+        shell: bash
+        run: |
+          mkdir -p build/dist
+          cd build/ios/iphoneos
+          mkdir -p Payload
+          cp -R Runner.app Payload/Runner.app
+          zip -r "$GITHUB_WORKSPACE/build/dist/${{ env.PROJECT_NAME }}-iOS.ipa" Payload
+          echo "Generated iOS IPA package:"
+          ls -lh "$GITHUB_WORKSPACE/build/dist"
+
+      - name: Upload iOS Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.PROJECT_NAME }}-ios
+          path: build/dist/*
+          retention-days: 14
+
+  # =========================================================================
+  # 7. Create GitHub Release & Attach Packages
+  # =========================================================================
+  release:
+    name: Publish GitHub Release
+    needs:
+      - versions
+      - build-windows
+      - build-linux
+      - build-macos
+      - build-android
+      - build-ios
+    if: always() && needs.versions.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all platform artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+          merge-multiple: true
+
+      - name: Display release artifact summary
+        shell: bash
+        run: |
+          echo "=== Release Artifacts to Publish ==="
+          find release-artifacts -type f -exec ls -lh {} +
+
+      - name: Create or Update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.versions.outputs.tag-name }}
+          name: 'Personal Finance ${{ needs.versions.outputs.tag-name }}'
+          files: release-artifacts/*
+          generate_release_notes: true
+          body: |
+            ## Personal Finance ${{ needs.versions.outputs.tag-name }}
+
+            Automated multi-platform production release built by GitHub Actions.
+
+            > **Data Privacy Notice**: Personal Finance runs with local-first SQLite storage. All packages include automatic database schema initialization on first launch without bundled dummy data or destructive resets.
+
+            ### Platform Packages
+            - **Windows**:
+              - Setup Installer (Next → Next → Install with License Agreement): `${{ env.PROJECT_NAME }}-Windows-x64.exe`
+              - Portable ZIP: `${{ env.PROJECT_NAME }}-Windows-x64.zip`
+            - **Linux**:
+              - Debian / Ubuntu Package: `${{ env.PROJECT_NAME }}-Linux-x64.deb` (`sudo dpkg -i ...`)
+              - Portable ZIP: `${{ env.PROJECT_NAME }}-Linux-x64.zip`
+            - **macOS**:
+              - Disk Image Installer: `${{ env.PROJECT_NAME }}-macOS.dmg` (with `/Applications` shortcut)
+              - Application ZIP: `${{ env.PROJECT_NAME }}-macOS.zip`
+            - **Android**:
+              - Production Release: `${{ env.PROJECT_NAME }}-Android.apk`
+            - **iOS**:
+              - iOS App Archive: `${{ env.PROJECT_NAME }}-iOS.ipa`
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

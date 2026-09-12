@@ -1,0 +1,27 @@
+END USER LICENSE AGREEMENT & TERMS OF SERVICE
+FOR PERSONAL FINANCE APPLICATION ("26_3_PersonalFinance")
+
+IMPORTANT - READ CAREFULLY:
+This End-User License Agreement ("EULA") is a legal agreement between you (either an individual or a single entity) and Personal Finance Application for the software product identified above, which includes computer software and may include associated media, printed materials, and "online" or electronic documentation.
+
+1. GRANT OF LICENSE
+Personal Finance grants you the following non-exclusive, non-transferable rights provided that you comply with all terms and conditions of this EULA:
+- You may install and use a copy of the Software on compatible computing devices that you own or control.
+- You may make backup copies of your local database and data for your personal financial archival purposes.
+
+2. PRIVACY AND DATA OWNERSHIP
+- Personal Finance is designed with privacy-first architecture. Your financial records, accounts, budgets, and transactions are stored locally on your device in your personal database.
+- The Software does not transmit, sell, or disclose your personal financial entries to unauthorized external parties.
+- You remain the sole owner of all data entered into the Software.
+
+3. RESTRICTIONS
+- You may not reverse engineer, decompile, or disassemble the Software, except and only to the extent that such activity is expressly permitted by applicable law.
+- You may not rent, lease, lend, or provide commercial hosting services with the Software without prior written authorization.
+
+4. DISCLAIMER OF WARRANTY
+THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NONINFRINGEMENT. THE AUTHORS AND COPYRIGHT HOLDERS ARE NOT FINANCIAL ADVISORS, AND THE SOFTWARE DOES NOT CONSTITUTE FINANCIAL, TAX, OR LEGAL ADVICE.
+
+5. LIMITATION OF LIABILITY
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+By clicking "I accept the agreement" or continuing the installation process, you agree to be bound by the terms and conditions of this EULA.
