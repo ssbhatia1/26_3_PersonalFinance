@@ -342,26 +342,26 @@ jobs:
           name: 'Personal Finance ${{ needs.versions.outputs.tag-name }}'
           files: release-artifacts/*
           generate_release_notes: true
-          body: |
-            ## Personal Finance ${{ needs.versions.outputs.tag-name }}
+          # body: |
+          #   ## Personal Finance ${{ needs.versions.outputs.tag-name }}
 
-            Automated multi-platform production release built by GitHub Actions.
+          #   Automated multi-platform production release built by GitHub Actions.
 
-            > **Data Privacy Notice**: Personal Finance runs with local-first SQLite storage. All packages include automatic database schema initialization on first launch without bundled dummy data or destructive resets.
+          #   > **Data Privacy Notice**: Personal Finance runs with local-first SQLite storage. All packages include automatic database schema initialization on first launch without bundled dummy data or destructive resets.
 
-            ### Platform Packages
-            - **Windows**:
-              - Setup Installer (Next → Next → Install with License Agreement): `${{ env.PROJECT_NAME }}-Windows-x64.exe`
-              - Portable ZIP: `${{ env.PROJECT_NAME }}-Windows-x64.zip`
-            - **Linux**:
-              - Debian / Ubuntu Package: `${{ env.PROJECT_NAME }}-Linux-x64.deb` (`sudo dpkg -i ...`)
-              - Portable ZIP: `${{ env.PROJECT_NAME }}-Linux-x64.zip`
-            - **macOS**:
-              - Disk Image Installer: `${{ env.PROJECT_NAME }}-macOS.dmg` (with `/Applications` shortcut)
-              - Application ZIP: `${{ env.PROJECT_NAME }}-macOS.zip`
-            - **Android**:
-              - Production Release: `${{ env.PROJECT_NAME }}-Android.apk`
-            - **iOS**:
-              - iOS App Archive: `${{ env.PROJECT_NAME }}-iOS.ipa`
+          #   ### Platform Packages
+          #   - **Windows**:
+          #     - Setup Installer (Next → Next → Install with License Agreement): `${{ env.PROJECT_NAME }}-Windows-x64.exe`
+          #     - Portable ZIP: `${{ env.PROJECT_NAME }}-Windows-x64.zip`
+          #   - **Linux**:
+          #     - Debian / Ubuntu Package: `${{ env.PROJECT_NAME }}-Linux-x64.deb` (`sudo dpkg -i ...`)
+          #     - Portable ZIP: `${{ env.PROJECT_NAME }}-Linux-x64.zip`
+          #   - **macOS**:
+          #     - Disk Image Installer: `${{ env.PROJECT_NAME }}-macOS.dmg` (with `/Applications` shortcut)
+          #     - Application ZIP: `${{ env.PROJECT_NAME }}-macOS.zip`
+          #   - **Android**:
+          #     - Production Release: `${{ env.PROJECT_NAME }}-Android.apk`
+          #   - **iOS**:
+          #     - iOS App Archive: `${{ env.PROJECT_NAME }}-iOS.ipa`
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
