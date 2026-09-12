@@ -156,7 +156,7 @@ class _AccountFormDialogState extends ConsumerState<AccountFormDialog> {
           institution: institution.isNotEmpty ? institution : null,
           maskedReference: effectiveMaskedRef,
           openingBalance: openingBal,
-          currentBalance: balanceChanged ? currentBal : oldAcc.currentBalance,
+          currentBalance: oldAcc.currentBalance,
           currency: _selectedCurrency,
           status: _selectedStatus,
           creditLimit: limit,

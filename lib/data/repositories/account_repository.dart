@@ -413,24 +413,22 @@ class AccountRepository {
         whereArgs: [accountId],
       );
 
-      // 2. Insert into account_adjustments
-      final adjustment = AccountAdjustment(
-        id: adjustmentId,
-        accountId: accountId,
-        previousBalance: prevBalance,
-        newBalance: newBalance,
-        adjustmentAmount: absAmount,
-        adjustmentType: adjustmentType,
-        reason: reason,
-        createdAt: now,
-        transactionId: txId,
-      );
-      await txn.insert(
-        DatabaseTables.accountAdjustments,
-        adjustment.toMap(),
-      );
+      // If difference is effectively zero, return without creating redundant transaction/adjustment records
+      if (absAmount < 0.001) {
+        return AccountAdjustment(
+          id: adjustmentId,
+          accountId: accountId,
+          previousBalance: prevBalance,
+          newBalance: newBalance,
+          adjustmentAmount: 0.0,
+          adjustmentType: 'increase',
+          reason: reason,
+          createdAt: now,
+          transactionId: null,
+        );
+      }
 
-      // 3. Insert an adjustment transaction so ledger & statements display it clearly
+      // 2. Insert transaction FIRST so foreign key constraint in account_adjustments succeeds
       final formattedDiff = diff >= 0 ? '+${diff.toStringAsFixed(2)}' : '-${absAmount.toStringAsFixed(2)}';
       final txMap = {
         'id': txId,
@@ -456,6 +454,23 @@ class AccountRepository {
         DatabaseTables.transactions,
         txMap,
         conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+
+      // 3. Now insert into account_adjustments referencing the existing transaction
+      final adjustment = AccountAdjustment(
+        id: adjustmentId,
+        accountId: accountId,
+        previousBalance: prevBalance,
+        newBalance: newBalance,
+        adjustmentAmount: absAmount,
+        adjustmentType: adjustmentType,
+        reason: reason,
+        createdAt: now,
+        transactionId: txId,
+      );
+      await txn.insert(
+        DatabaseTables.accountAdjustments,
+        adjustment.toMap(),
       );
 
       return adjustment;

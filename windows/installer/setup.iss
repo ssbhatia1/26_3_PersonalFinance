@@ -48,7 +48,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 Source: "{#MyAppSourceDir}\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#MyAppSourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*.db,*.sqlite,*.sqlite3,*.db-journal,*.db-wal,*.db-shm"
+Source: "{#MyAppSourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*.db,*.sqlite,*.sqlite3,*.db-journal,*.db-wal,*.db-shm,.portable,portable.txt"
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

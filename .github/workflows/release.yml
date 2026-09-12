@@ -108,6 +108,12 @@ jobs:
           }
 
           Write-Host "Creating Windows portable ZIP archive..."
+          # Add .portable marker file so the extracted zip build uses folder-based data
+          New-Item -ItemType File -Path "$env:GITHUB_WORKSPACE\build\windows\x64\runner\Release\.portable" -Force | Out-Null
+          if (-not (Test-Path "$env:GITHUB_WORKSPACE\build\windows\x64\runner\Release\data")) {
+            New-Item -ItemType Directory -Path "$env:GITHUB_WORKSPACE\build\windows\x64\runner\Release\data" -Force | Out-Null
+          }
+
           Compress-Archive `
             -Path "$env:GITHUB_WORKSPACE\build\windows\x64\runner\Release\*" `
             -DestinationPath "$distDir\${{ env.PROJECT_NAME }}-Windows-x64.zip" `

@@ -457,10 +457,74 @@ class AppDatabase {
     }
   }
 
+  /// Returns the resolved database path (folder-based for portable builds, documents for installed)
+  Future<String> get databasePath => _getDatabasePath();
+
   Future<String> _getDatabasePath() async {
     if (kIsWeb) {
       return 'personal_finance.db';
     }
+
+    if (!kIsWeb && (Platform.isWindows || Platform.isLinux || Platform.isMacOS)) {
+      try {
+        final exeDir = p.dirname(Platform.resolvedExecutable);
+
+        // 1. Direct database file in application folder
+        final localDbInExeDir = File(p.join(exeDir, 'personal_finance_app.db'));
+        if (localDbInExeDir.existsSync()) {
+          debugPrint('Using local database in executable directory: ${localDbInExeDir.path}');
+          return localDbInExeDir.path;
+        }
+
+        // 2. Database inside data/ subfolder of application folder
+        final localDbInDataDir = File(p.join(exeDir, 'data', 'personal_finance_app.db'));
+        if (localDbInDataDir.existsSync()) {
+          debugPrint('Using local database in application data folder: ${localDbInDataDir.path}');
+          return localDbInDataDir.path;
+        }
+
+        // 3. Portable marker checks (.portable, portable.txt, is_portable)
+        final hasPortableMarker = File(p.join(exeDir, '.portable')).existsSync() ||
+            File(p.join(exeDir, 'portable.txt')).existsSync() ||
+            File(p.join(exeDir, 'is_portable')).existsSync();
+
+        // 4. Also check if running in a non-system folder (portable zip extraction or developer folder)
+        final isSystemFolder = Platform.isWindows
+            ? (exeDir.toLowerCase().contains('program files') || exeDir.toLowerCase().contains(r'windows\system32'))
+            : (exeDir.startsWith('/usr') || exeDir.startsWith('/bin') || exeDir.startsWith('/opt'));
+
+        if (hasPortableMarker || !isSystemFolder) {
+          // Portable mode / folder build: store data inside the application folder
+          final dataDir = Directory(p.join(exeDir, 'data'));
+          final targetDbFile = dataDir.existsSync()
+              ? File(p.join(dataDir.path, 'personal_finance_app.db'))
+              : File(p.join(exeDir, 'personal_finance_app.db'));
+
+          // If the database doesn't exist yet in the folder, check if there is an existing database in Documents to migrate over
+          if (!targetDbFile.existsSync()) {
+            try {
+              final appDocDir = await getApplicationDocumentsDirectory();
+              final existingDocDb = File(p.join(appDocDir.path, 'personal_finance_app.db'));
+              if (existingDocDb.existsSync()) {
+                debugPrint('Migrating existing database from Documents into folder: ${targetDbFile.path}');
+                if (!targetDbFile.parent.existsSync()) {
+                  targetDbFile.parent.createSync(recursive: true);
+                }
+                existingDocDb.copySync(targetDbFile.path);
+              }
+            } catch (e) {
+              debugPrint('Notice migrating existing documents database: $e');
+            }
+          }
+
+          debugPrint('Using folder database: ${targetDbFile.path}');
+          return targetDbFile.path;
+        }
+      } catch (e) {
+        debugPrint('Notice determining local database path: $e');
+      }
+    }
+
     final appDocDir = await getApplicationDocumentsDirectory();
     return p.join(appDocDir.path, 'personal_finance_app.db');
   }
