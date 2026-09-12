@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/widgets/app_logo.dart';
@@ -313,30 +312,6 @@ class AccountsScreen extends ConsumerWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.token_rounded, size: 10, color: AppColors.primary),
-                          const SizedBox(width: 3),
-                          Text(
-                            acc.token.length > 12 ? '${acc.token.substring(0, 10)}…' : acc.token,
-                            style: const TextStyle(
-                              fontSize: 9.5,
-                              fontFamily: 'monospace',
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   ],
                 ),
                 trailing: Row(
@@ -380,26 +355,11 @@ class AccountsScreen extends ConsumerWidget {
                           _openAccountDetail(context, acc.id, initialTab: 1);
                         } else if (action == 'adjustments') {
                           _openAccountDetail(context, acc.id, initialTab: 2);
-                        } else if (action == 'copy_token') {
-                          Clipboard.setData(ClipboardData(text: acc.token));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Account token copied: ${acc.token}')),
-                          );
                         } else if (action == 'delete') {
                           _openDeleteAccount(context, acc);
                         }
                       },
                       itemBuilder: (ctx) => [
-                        const PopupMenuItem(
-                          value: 'copy_token',
-                          child: Row(
-                            children: [
-                              Icon(Icons.token_rounded, size: 18, color: AppColors.primary),
-                              SizedBox(width: 8),
-                              Text('Copy Security Token', style: TextStyle(fontWeight: FontWeight.w600)),
-                            ],
-                          ),
-                        ),
                         const PopupMenuItem(
                           value: 'edit',
                           child: Row(

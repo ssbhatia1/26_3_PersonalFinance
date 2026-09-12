@@ -418,15 +418,6 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> with 
                 _metricBadge('Interest Rate', '${account.interestRate}%', color: AppColors.liability),
               if (account.maskedReference != null)
                 _metricBadge('Ref', account.maskedReference!),
-              InkWell(
-                onTap: () {
-                  Clipboard.setData(ClipboardData(text: account.token));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Account Token copied to clipboard'), duration: Duration(seconds: 1)),
-                  );
-                },
-                child: _metricBadge('Token', account.token.length > 15 ? '${account.token.substring(0, 13)}…' : account.token, color: AppColors.primary),
-              ),
               _metricBadge('Status', account.status.toUpperCase(), color: AppColors.success),
             ],
           ),
@@ -1451,71 +1442,7 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> with 
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.07),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.token_rounded, size: 18, color: AppColors.primary),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text('Cryptographic Security Token', style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 2),
-                            Text(
-                              account.token,
-                              style: const TextStyle(fontSize: 12, fontFamily: 'monospace', fontWeight: FontWeight.bold, color: AppColors.primary),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.copy_rounded, size: 16, color: AppColors.primary),
-                        tooltip: 'Copy Security Token',
-                        onPressed: () {
-                          Clipboard.setData(ClipboardData(text: account.token));
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Account Token copied to clipboard!'), duration: Duration(seconds: 1)),
-                          );
-                        },
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.refresh_rounded, size: 16, color: AppColors.primary),
-                        tooltip: 'Rotate Token',
-                        onPressed: () async {
-                          final confirm = await showDialog<bool>(
-                            context: context,
-                            builder: (ctx) => AlertDialog(
-                              title: const Text('Rotate Account Token?'),
-                              content: const Text('This will generate a new cryptographic surrogate token for this account.'),
-                              actions: [
-                                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                                ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Rotate')),
-                              ],
-                            ),
-                          );
-                          if (confirm == true && context.mounted) {
-                            await ref.read(accountProvider.notifier).rotateAccountToken(account.id);
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Account Token successfully rotated!')),
-                              );
-                            }
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 8),
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(

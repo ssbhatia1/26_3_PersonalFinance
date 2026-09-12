@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
@@ -358,50 +357,6 @@ class _AccountFormDialogState extends ConsumerState<AccountFormDialog> {
                               ),
                             ),
                           ],
-                        ),
-                        const SizedBox(height: 8),
-
-                        // Tokenization Security Banner
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.token_rounded, size: 15, color: AppColors.primary),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  isEditing
-                                      ? 'Token: ${widget.accountToEdit!.token}'
-                                      : 'Tokenization Active: Every account is secured with a unique cryptographic surrogate token.',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontFamily: isEditing ? 'monospace' : null,
-                                    fontWeight: isEditing ? FontWeight.bold : FontWeight.w500,
-                                    color: isDark ? const Color(0xFF93C5FD) : const Color(0xFF1D4ED8),
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              if (isEditing)
-                                InkWell(
-                                  onTap: () {
-                                    Clipboard.setData(ClipboardData(text: widget.accountToEdit!.token));
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('Account Token copied!'), duration: Duration(seconds: 1)),
-                                    );
-                                  },
-                                  child: const Padding(
-                                    padding: EdgeInsets.symmetric(horizontal: 4),
-                                    child: Icon(Icons.copy_rounded, size: 14, color: AppColors.primary),
-                                  ),
-                                ),
-                            ],
-                          ),
                         ),
                         const SizedBox(height: 14),
 

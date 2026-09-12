@@ -529,20 +529,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> w
                   items: accounts.map((a) {
                     return DropdownMenuItem(
                       value: a.id,
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              '${a.name} (${CurrencyFormatter.format(a.currentBalance, symbol: curr)})',
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            a.token.length > 10 ? '• ${a.token.substring(0, 8)}…' : '• ${a.token}',
-                            style: const TextStyle(fontSize: 10, fontFamily: 'monospace', color: Colors.grey),
-                          ),
-                        ],
+                      child: Text(
+                        '${a.name} (${CurrencyFormatter.format(a.currentBalance, symbol: curr)})',
+                        overflow: TextOverflow.ellipsis,
                       ),
                     );
                   }).toList(),
@@ -568,20 +557,9 @@ class _TransactionFormScreenState extends ConsumerState<TransactionFormScreen> w
                       items: destAccounts.map((a) {
                         return DropdownMenuItem(
                           value: a.id,
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  '${a.name} (${CurrencyFormatter.format(a.currentBalance, symbol: curr)})',
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                a.token.length > 10 ? '• ${a.token.substring(0, 8)}…' : '• ${a.token}',
-                                style: const TextStyle(fontSize: 10, fontFamily: 'monospace', color: Colors.grey),
-                              ),
-                            ],
+                          child: Text(
+                            '${a.name} (${CurrencyFormatter.format(a.currentBalance, symbol: curr)})',
+                            overflow: TextOverflow.ellipsis,
                           ),
                         );
                       }).toList(),
