@@ -352,7 +352,7 @@ jobs:
           tag_name: ${{ needs.versions.outputs.tag-name }}
           name: 'Personal Finance ${{ needs.versions.outputs.tag-name }}'
           files: release-artifacts/*
-          generate_release_notes: true
+          generate_release_notes: false
           # body: |
           #   ## Personal Finance ${{ needs.versions.outputs.tag-name }}
 
