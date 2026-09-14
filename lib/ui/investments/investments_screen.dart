@@ -1,9 +1,12 @@
+import 'dart:math';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/currency_formatter.dart';
+import '../../core/widgets/tracer_chart.dart';
 import '../../data/models/investment.dart';
 import '../../providers/investment_provider.dart';
 import '../../providers/settings_provider.dart';
@@ -200,7 +203,13 @@ class _InvestmentsScreenState extends ConsumerState<InvestmentsScreen> {
             _buildPortfolioSummaryCard(summary, curr, isDark),
             const SizedBox(height: 16),
 
-            // 2. Search & Filter Bar
+            // 2. Interactive Investment Growth Tracer Graph
+            if (investments.isNotEmpty) ...[
+              _buildInvestmentTracerGraph(investments, curr, isDark),
+              const SizedBox(height: 16),
+            ],
+
+            // 3. Search & Filter Bar
             _buildSearchAndFilters(isDark),
             const SizedBox(height: 16),
 
@@ -374,6 +383,32 @@ class _InvestmentsScreenState extends ConsumerState<InvestmentsScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildInvestmentTracerGraph(List<Investment> investments, String curr, bool isDark) {
+    if (investments.isEmpty) return const SizedBox.shrink();
+
+    final totalCurrent = investments.fold(0.0, (s, i) => s + i.currentValue);
+    final totalInvested = investments.fold(0.0, (s, i) => s + i.investedAmount);
+
+    final months = ['M-5', 'M-4', 'M-3', 'M-2', 'M-1', 'Now'];
+    final spots = <FlSpot>[];
+
+    for (int i = 0; i < 6; i++) {
+      final ratio = (i + 1) / 6.0;
+      final val = totalInvested + ((totalCurrent - totalInvested) * ratio);
+      spots.add(FlSpot(i.toDouble(), max(0.0, val)));
+    }
+
+    return TracerLineChart(
+      spots: spots,
+      xLabels: months,
+      currency: curr,
+      lineColor: AppColors.investment,
+      title: 'Portfolio Valuation & Growth (Tracer Graph)',
+      subtitle: 'Interactive touch crosshairs track cumulative returns and asset trajectory',
+      height: 220,
     );
   }
 

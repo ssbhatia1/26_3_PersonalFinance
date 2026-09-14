@@ -3,7 +3,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
-import '../../../core/utils/currency_formatter.dart';
+import '../../../core/widgets/tracer_chart.dart';
 import '../../../data/models/transaction.dart';
 
 class NetWorthGrowthCard extends StatelessWidget {
@@ -11,6 +11,8 @@ class NetWorthGrowthCard extends StatelessWidget {
   final List<TransactionModel> transactions;
   final String currency;
   final double height;
+  final DateTime? startDate;
+  final DateTime? endDate;
 
   const NetWorthGrowthCard({
     super.key,
@@ -18,6 +20,8 @@ class NetWorthGrowthCard extends StatelessWidget {
     required this.transactions,
     required this.currency,
     this.height = 320.0,
+    this.startDate,
+    this.endDate,
   });
 
   @override
@@ -65,51 +69,73 @@ class NetWorthGrowthCard extends StatelessWidget {
     }
 
     final now = DateTime.now();
-    // 6-month monthly timeline
-    final months = List.generate(6, (i) => DateTime(now.year, now.month - (5 - i), 1));
-    final monthSpots = <FlSpot>[];
+    final start = startDate ?? DateTime(now.year, now.month - 5, 1);
+    final end = endDate ?? now;
+    final diffDays = max(1, end.difference(start).inDays);
 
-    // Compute cumulative balance trajectory across 6 months
+    final List<DateTime> timePoints;
+    final bool isMonthly;
+
+    if (diffDays <= 31) {
+      isMonthly = false;
+      final count = min(10, max(5, diffDays + 1));
+      final step = diffDays / max(1, count - 1);
+      timePoints = List.generate(count, (i) => start.add(Duration(seconds: (i * step * 86400).round())));
+    } else {
+      isMonthly = true;
+      final startMonth = DateTime(start.year, start.month, 1);
+      final endMonth = DateTime(end.year, end.month, 1);
+      final list = <DateTime>[];
+      var curr = startMonth;
+      while (!curr.isAfter(endMonth) && list.length < 12) {
+        list.add(curr);
+        curr = DateTime(curr.year, curr.month + 1, 1);
+      }
+      timePoints = list.isEmpty ? [startMonth] : list;
+    }
+
     final sortedTxs = List<TransactionModel>.from(transactions)
       ..sort((a, b) => a.date.compareTo(b.date));
 
-    // Calculate total net flow after each month cut-off
+    final spots = <FlSpot>[];
     double maxVal = 10.0;
     double minVal = 0.0;
 
-    for (int i = 0; i < months.length; i++) {
-      final m = months[i];
-      final endOfMonth = DateTime(m.year, m.month + 1, 0, 23, 59, 59);
+    for (int i = 0; i < timePoints.length; i++) {
+      final pt = timePoints[i];
+      final ptEnd = isMonthly
+          ? DateTime(pt.year, pt.month + 1, 0, 23, 59, 59)
+          : DateTime(pt.year, pt.month, pt.day, 23, 59, 59);
 
-      if (i == months.length - 1) {
-        // Current point is current net worth
+      if (i == timePoints.length - 1) {
         final y = currentNetWorth;
-        monthSpots.add(FlSpot(i.toDouble(), y));
+        spots.add(FlSpot(i.toDouble(), y));
         if (y > maxVal) maxVal = y;
         if (y < minVal) minVal = y;
       } else {
-        // Retroactively estimate net worth backwards by subtracting net inflows that occurred after endOfMonth
-        final flowsAfter = sortedTxs.where((t) => t.date.isAfter(endOfMonth)).fold<double>(
+        final flowsAfter = sortedTxs.where((t) => t.date.isAfter(ptEnd)).fold<double>(
           0.0,
-          (sum, t) => sum + (t.isIncome ? t.amount : -t.amount),
+          (sum, t) => sum + (t.isIncome ? t.amount : (t.isExpense ? -t.amount : 0.0)),
         );
-        final estimated = currentNetWorth - flowsAfter;
-        final y = estimated < 0 && currentNetWorth >= 0 ? 0.0 : estimated;
-        monthSpots.add(FlSpot(i.toDouble(), y));
+        final y = currentNetWorth - flowsAfter;
+        spots.add(FlSpot(i.toDouble(), y));
         if (y > maxVal) maxVal = y;
         if (y < minVal) minVal = y;
       }
     }
 
-    final firstVal = monthSpots.first.y;
-    final lastVal = monthSpots.last.y;
-    final growthPct = firstVal > 0 ? ((lastVal - firstVal) / firstVal * 100) : 0.0;
+    final firstVal = spots.first.y;
+    final lastVal = spots.last.y;
+    final growthPct = firstVal != 0
+        ? ((lastVal - firstVal) / firstVal.abs() * 100)
+        : (lastVal != 0 ? 100.0 : 0.0);
     final isPositive = growthPct >= 0;
-    final growthText = '${isPositive ? '+' : ''}${growthPct.toStringAsFixed(1)}% ↗';
+    final growthText = '${isPositive ? '+' : ''}${growthPct.toStringAsFixed(1)}% ${isPositive ? '↗' : '↘'}';
 
     final range = maxVal - minVal;
     final yMax = max(10.0, maxVal + (range * 0.25).clamp(5.0, 50000.0));
     final yMin = min(0.0, minVal - (range * 0.1).clamp(0.0, 10000.0));
+    final xInterval = max(1.0, (timePoints.length / 6).floorToDouble());
 
     return Container(
       height: height,
@@ -131,7 +157,6 @@ class NetWorthGrowthCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header Row
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -160,13 +185,11 @@ class NetWorthGrowthCard extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 16),
-
-          // Chart Area
           Expanded(
             child: LineChart(
               LineChartData(
                 minX: 0,
-                maxX: 5,
+                maxX: max(0.0, (timePoints.length - 1).toDouble()),
                 minY: yMin,
                 maxY: yMax,
                 gridData: FlGridData(
@@ -186,13 +209,17 @@ class NetWorthGrowthCard extends StatelessWidget {
                     sideTitles: SideTitles(
                       showTitles: true,
                       reservedSize: 22,
+                      interval: xInterval,
                       getTitlesWidget: (value, meta) {
-                        final idx = value.toInt();
-                        if (idx >= 0 && idx < months.length) {
+                        if (value != value.roundToDouble()) return const SizedBox.shrink();
+                        final idx = value.round();
+                        if (idx >= 0 && idx < timePoints.length) {
+                          final dt = timePoints[idx];
+                          final label = isMonthly ? DateFormat('MMM').format(dt) : DateFormat('d MMM').format(dt);
                           return Padding(
                             padding: const EdgeInsets.only(top: 4.0),
                             child: Text(
-                              DateFormat('MMM').format(months[idx]),
+                              label,
                               style: TextStyle(
                                 fontSize: 10,
                                 color: isDark ? Colors.grey[400] : const Color(0xFF94A3B8),
@@ -207,27 +234,18 @@ class NetWorthGrowthCard extends StatelessWidget {
                   ),
                 ),
                 borderData: FlBorderData(show: false),
-                lineTouchData: LineTouchData(
-                  touchTooltipData: LineTouchTooltipData(
-                    getTooltipItems: (touchedSpots) {
-                      return touchedSpots.map((s) {
-                        final idx = s.x.toInt();
-                        final mName = idx >= 0 && idx < months.length
-                            ? DateFormat('MMMM yyyy').format(months[idx])
-                            : '';
-                        return LineTooltipItem(
-                          '$mName\n${CurrencyFormatter.format(s.y, symbol: currency)}',
-                          const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                        );
-                      }).toList();
-                    },
-                  ),
+                lineTouchData: buildTracerTouchData(
+                  tracerColor: const Color(0xFF10B981),
+                  currency: currency,
+                  isDark: isDark,
+                  xLabels: timePoints.map((dt) => isMonthly ? DateFormat('MMM yyyy').format(dt) : DateFormat('d MMM yyyy').format(dt)).toList(),
                 ),
                 lineBarsData: [
                   LineChartBarData(
-                    spots: monthSpots,
+                    spots: spots,
                     isCurved: true,
                     curveSmoothness: 0.35,
+                    preventCurveOverShooting: true,
                     color: const Color(0xFF10B981),
                     barWidth: 2.8,
                     isStrokeCapRound: true,

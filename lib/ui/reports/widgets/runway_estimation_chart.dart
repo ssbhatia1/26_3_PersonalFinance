@@ -3,6 +3,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/widgets/tracer_chart.dart';
 
 class RunwayEstimationChart extends StatelessWidget {
   final int runwayDays;
@@ -250,8 +251,10 @@ class RunwayEstimationChart extends StatelessWidget {
                     sideTitles: SideTitles(
                       showTitles: true,
                       reservedSize: 20,
+                      interval: 1,
                       getTitlesWidget: (val, meta) {
-                        final d = val.toInt();
+                        if (val != val.roundToDouble()) return const SizedBox.shrink();
+                        final d = val.round();
                         if (d == 0) {
                           return const Padding(
                             padding: EdgeInsets.only(top: 4.0),
@@ -260,7 +263,7 @@ class RunwayEstimationChart extends StatelessWidget {
                         }
                         if (d % 30 == 0 || d == horizonDays) {
                           return Padding(
-                            padding: EdgeInsets.only(top: 4.0),
+                            padding: const EdgeInsets.only(top: 4.0),
                             child: Text('+${d}d', style: const TextStyle(fontSize: 9.5)),
                           );
                         }
@@ -270,27 +273,18 @@ class RunwayEstimationChart extends StatelessWidget {
                   ),
                 ),
                 borderData: FlBorderData(show: false),
-                lineTouchData: LineTouchData(
-                  touchTooltipData: LineTouchTooltipData(
-                    getTooltipItems: (touchedSpots) {
-                      return touchedSpots.map((spot) {
-                        return LineTooltipItem(
-                          'Day +${spot.x.toInt()}\n${CurrencyFormatter.format(spot.y, symbol: currency)}',
-                          const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        );
-                      }).toList();
-                    },
-                  ),
+                lineTouchData: buildTracerTouchData(
+                  tracerColor: runwayColor,
+                  currency: currency,
+                  isDark: isDark,
+                  xLabels: spots.map((s) => 'Day +${s.x.toInt()}').toList(),
                 ),
                 lineBarsData: [
                   LineChartBarData(
                     spots: spots,
                     isCurved: true,
                     curveSmoothness: 0.2,
+                    preventCurveOverShooting: true,
                     color: runwayColor,
                     barWidth: 2.5,
                     isStrokeCapRound: true,

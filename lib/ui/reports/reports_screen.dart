@@ -134,12 +134,13 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTicker
         end,
         accountId: _selectedAccountId,
       );
+      final monthsInPeriod = max(1, ((end.year - start.year) * 12 + end.month - start.month + 1));
       final monthlyTrends = await txRepo.getMonthlyTrends(
-        monthsCount: 6,
+        monthsCount: monthsInPeriod,
         accountId: _selectedAccountId,
       );
       final multiMonthCategoryTrends = await txRepo.getMultiMonthCategoryTrends(
-        monthsCount: 6,
+        monthsCount: monthsInPeriod,
         accountId: _selectedAccountId,
       );
 
@@ -769,6 +770,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTicker
     required String curr,
     required bool isDark,
   }) {
+    final (start, end) = _resolveDateRange();
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -783,6 +785,8 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTicker
             transactions: _allTransactions,
             currency: curr,
             height: 320,
+            startDate: start,
+            endDate: end,
           ),
           IncomeVsExpenseDonutCard(
             income: income,
@@ -794,12 +798,16 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTicker
             transactions: _filteredTransactions,
             currency: curr,
             height: 320,
+            startDate: start,
+            endDate: end,
           ),
           InvestmentPortfolioCard(
             investments: investments.cast(),
             totalInvestmentsValuation: totalInvestments,
             currency: curr,
             height: 320,
+            startDate: start,
+            endDate: end,
           ),
           CategoryDonutChart(
             categorySpending: _categoryExpenses,
@@ -838,6 +846,8 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTicker
             transactions: _allTransactions,
             currency: curr,
             height: 320,
+            startDate: start,
+            endDate: end,
           ),
           FinancialFunnelChart(
             grossInflow: income,
@@ -878,6 +888,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTicker
     required String curr,
     required bool isDark,
   }) {
+    final (start, end) = _resolveDateRange();
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -966,6 +977,8 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTicker
               transactions: _filteredTransactions,
               currency: curr,
               height: 320,
+              startDate: start,
+              endDate: end,
             ),
             FinancialFunnelChart(
               grossInflow: income,
@@ -2240,6 +2253,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTicker
     required String curr,
     required bool isDark,
   }) {
+    final (start, end) = _resolveDateRange();
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -2250,12 +2264,16 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTicker
             transactions: _allTransactions,
             currency: curr,
             height: 320,
+            startDate: start,
+            endDate: end,
           ),
           InvestmentPortfolioCard(
             investments: investments.cast(),
             totalInvestmentsValuation: totalInvestments,
             currency: curr,
             height: 320,
+            startDate: start,
+            endDate: end,
           ),
         ),
         const SizedBox(height: 16),
@@ -2265,6 +2283,8 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> with SingleTicker
           transactions: _allTransactions,
           currency: curr,
           height: 320,
+          startDate: start,
+          endDate: end,
         ),
         const SizedBox(height: 16),
 

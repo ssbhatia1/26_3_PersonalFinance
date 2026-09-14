@@ -4,6 +4,7 @@ import '../data/repositories/transaction_repository.dart';
 import 'account_provider.dart';
 import 'auth_provider.dart';
 import 'database_provider.dart';
+import 'goal_provider.dart';
 
 class TransactionFilterState {
   final String type; // 'all', 'income', 'expense', 'transfer'
@@ -183,21 +184,27 @@ class TransactionNotifier extends Notifier<TransactionState> {
 
   Future<void> createTransaction(TransactionModel tx) async {
     await _repository.createTransaction(tx);
+    ref.invalidate(allTransactionsProvider);
     await loadTransactions();
-    // Refresh accounts so balances reflect immediately
+    // Refresh accounts and goals so balances reflect immediately
     await ref.read(accountProvider.notifier).loadAccounts();
+    await ref.read(goalProvider.notifier).loadGoals();
   }
 
   Future<void> updateTransaction(TransactionModel tx) async {
     await _repository.updateTransaction(tx);
+    ref.invalidate(allTransactionsProvider);
     await loadTransactions();
     await ref.read(accountProvider.notifier).loadAccounts();
+    await ref.read(goalProvider.notifier).loadGoals();
   }
 
   Future<void> deleteTransaction(String transactionId) async {
     await _repository.deleteTransaction(transactionId);
+    ref.invalidate(allTransactionsProvider);
     await loadTransactions();
     await ref.read(accountProvider.notifier).loadAccounts();
+    await ref.read(goalProvider.notifier).loadGoals();
   }
 }
 

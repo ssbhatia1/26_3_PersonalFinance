@@ -143,7 +143,7 @@ class AttachmentRepository {
     if (await sourceFile.exists()) {
       await sourceFile.copy(destPath);
     } else {
-      // If sourceFile doesn't exist (e.g. mock test), create dummy/empty file
+      // If sourceFile doesn't exist (e.g. test environment), create empty file
       await File(destPath).create(recursive: true);
     }
 

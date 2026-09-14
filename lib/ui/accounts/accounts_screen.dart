@@ -52,17 +52,8 @@ class AccountsScreen extends ConsumerWidget {
     }
   }
 
-  void _openAccountAdjustment(BuildContext context, WidgetRef ref, Account acc) async {
-    final adjusted = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AccountAdjustmentDialog(account: acc),
-    );
-    if (adjusted == true && context.mounted) {
-      ref.read(accountProvider.notifier).loadAccounts();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Balance for ${acc.name} updated successfully')),
-      );
-    }
+  void _openAccountAdjustment(BuildContext context, WidgetRef ref, Account acc) {
+    _openEditAccount(context, ref, acc);
   }
 
   void _openAccountDetail(BuildContext context, String accountId, {int initialTab = 0}) {

@@ -4,46 +4,81 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/utils/currency_formatter.dart';
+import '../../../core/widgets/tracer_chart.dart';
 import '../../../data/models/transaction.dart';
 
 class CashFlowLineChart extends StatelessWidget {
   final List<TransactionModel> transactions;
   final String currency;
   final double height;
+  final DateTime? startDate;
+  final DateTime? endDate;
 
   const CashFlowLineChart({
     super.key,
     required this.transactions,
     required this.currency,
     this.height = 320.0,
+    this.startDate,
+    this.endDate,
   });
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    // Group transactions by 7 active days (anchored to latest transaction in window or today)
-    final refDate = transactions.isNotEmpty
-        ? transactions.map((t) => t.date).reduce((a, b) => a.isAfter(b) ? a : b)
-        : DateTime.now();
-    final anchorDate = DateTime.now().difference(refDate).inDays <= 7 ? DateTime.now() : refDate;
-    final days = List.generate(7, (i) => anchorDate.subtract(Duration(days: 6 - i)));
+    final now = DateTime.now();
+    final start = startDate ??
+        (transactions.isNotEmpty
+            ? transactions.map((t) => t.date).reduce((a, b) => a.isBefore(b) ? a : b)
+            : now.subtract(const Duration(days: 6)));
+    final end = endDate ?? now;
+
+    final diffDays = max(1, end.difference(start).inDays);
+
+    final List<DateTime> timePoints;
+    final bool isMonthly;
+
+    if (diffDays <= 31) {
+      isMonthly = false;
+      final count = min(10, max(5, diffDays + 1));
+      final step = diffDays / max(1, count - 1);
+      timePoints = List.generate(count, (i) => start.add(Duration(seconds: (i * step * 86400).round())));
+    } else {
+      isMonthly = true;
+      final startMonth = DateTime(start.year, start.month, 1);
+      final endMonth = DateTime(end.year, end.month, 1);
+      final list = <DateTime>[];
+      var curr = startMonth;
+      while (!curr.isAfter(endMonth) && list.length < 12) {
+        list.add(curr);
+        curr = DateTime(curr.year, curr.month + 1, 1);
+      }
+      timePoints = list.isEmpty ? [startMonth] : list;
+    }
 
     final List<FlSpot> incomeSpots = [];
     final List<FlSpot> expenseSpots = [];
-
     double maxVal = 10.0;
 
-    for (int i = 0; i < days.length; i++) {
-      final day = days[i];
-      final dayTxs = transactions.where((t) {
-        return t.date.year == day.year &&
-            t.date.month == day.month &&
-            t.date.day == day.day;
-      }).toList();
+    for (int i = 0; i < timePoints.length; i++) {
+      final pt = timePoints[i];
+      List<TransactionModel> ptTxs;
 
-      final inc = dayTxs.where((t) => t.isIncome).fold(0.0, (s, t) => s + t.amount);
-      final exp = dayTxs.where((t) => t.isExpense).fold(0.0, (s, t) => s + t.amount);
+      if (isMonthly) {
+        ptTxs = transactions.where((t) {
+          return t.date.year == pt.year && t.date.month == pt.month;
+        }).toList();
+      } else {
+        final ptStart = DateTime(pt.year, pt.month, pt.day);
+        final ptEnd = DateTime(pt.year, pt.month, pt.day, 23, 59, 59);
+        ptTxs = transactions.where((t) {
+          return !t.date.isBefore(ptStart) && !t.date.isAfter(ptEnd);
+        }).toList();
+      }
+
+      final inc = ptTxs.where((t) => t.isIncome).fold(0.0, (s, t) => s + t.amount);
+      final exp = ptTxs.where((t) => t.isExpense).fold(0.0, (s, t) => s + t.amount);
 
       incomeSpots.add(FlSpot(i.toDouble(), inc));
       expenseSpots.add(FlSpot(i.toDouble(), exp));
@@ -71,12 +106,13 @@ class CashFlowLineChart extends StatelessWidget {
               Icon(Icons.timeline_rounded, size: 40, color: Colors.grey),
               SizedBox(height: 10),
               Text(
-                'No cash flow activity in past 7 active days',
+                'No cash flow activity in selected timeframe',
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey),
               ),
               SizedBox(height: 4),
               Text(
-                'Daily income and expense trajectory will display when transactions occur.',
+                'Income and expense trajectory will display when transactions occur in this timeframe.',
+                textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12, color: Colors.grey),
               ),
             ],
@@ -85,8 +121,8 @@ class CashFlowLineChart extends StatelessWidget {
       );
     }
 
-    // Add 20% headroom
     maxVal = max(10.0, maxVal * 1.25);
+    final xInterval = max(1.0, (timePoints.length / 6).floorToDouble());
 
     return Container(
       height: height,
@@ -122,7 +158,7 @@ class CashFlowLineChart extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Income vs Expense trends over past 7 active days',
+                      'Income vs Expense trends for selected timeframe',
                       style: TextStyle(
                         fontSize: 12,
                         color: isDark ? Colors.grey[400] : Colors.grey[600],
@@ -147,7 +183,7 @@ class CashFlowLineChart extends StatelessWidget {
             child: LineChart(
               LineChartData(
                 minX: 0,
-                maxX: 6,
+                maxX: max(0.0, (timePoints.length - 1).toDouble()),
                 minY: 0,
                 maxY: maxVal,
                 gridData: FlGridData(
@@ -181,13 +217,17 @@ class CashFlowLineChart extends StatelessWidget {
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
+                      interval: xInterval,
                       getTitlesWidget: (value, meta) {
-                        final idx = value.toInt();
-                        if (idx >= 0 && idx < days.length) {
+                        if (value != value.roundToDouble()) return const SizedBox.shrink();
+                        final idx = value.round();
+                        if (idx >= 0 && idx < timePoints.length) {
+                          final dt = timePoints[idx];
+                          final label = isMonthly ? DateFormat('MMM').format(dt) : DateFormat('d MMM').format(dt);
                           return Padding(
                             padding: const EdgeInsets.only(top: 8.0),
                             child: Text(
-                              DateFormat('E d').format(days[idx]),
+                              label,
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w600,
@@ -203,11 +243,11 @@ class CashFlowLineChart extends StatelessWidget {
                 ),
                 borderData: FlBorderData(show: false),
                 lineBarsData: [
-                  // Income Line
                   LineChartBarData(
                     spots: incomeSpots,
                     isCurved: true,
                     curveSmoothness: 0.35,
+                    preventCurveOverShooting: true,
                     color: AppColors.income,
                     barWidth: 2.8,
                     isStrokeCapRound: true,
@@ -232,11 +272,11 @@ class CashFlowLineChart extends StatelessWidget {
                       ),
                     ),
                   ),
-                  // Expense Line
                   LineChartBarData(
                     spots: expenseSpots,
                     isCurved: true,
                     curveSmoothness: 0.35,
+                    preventCurveOverShooting: true,
                     color: AppColors.expense,
                     barWidth: 2.8,
                     isStrokeCapRound: true,
@@ -262,22 +302,11 @@ class CashFlowLineChart extends StatelessWidget {
                     ),
                   ),
                 ],
-                lineTouchData: LineTouchData(
-                  touchTooltipData: LineTouchTooltipData(
-                    getTooltipItems: (touchedSpots) {
-                      return touchedSpots.map((spot) {
-                        final isInc = spot.barIndex == 0;
-                        return LineTooltipItem(
-                          '${isInc ? "Inflow" : "Outflow"}: ${CurrencyFormatter.format(spot.y, symbol: currency)}',
-                          TextStyle(
-                            color: isInc ? AppColors.income : AppColors.expense,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        );
-                      }).toList();
-                    },
-                  ),
+                lineTouchData: buildTracerTouchData(
+                  tracerColor: AppColors.primary,
+                  currency: currency,
+                  isDark: isDark,
+                  xLabels: timePoints.map((dt) => isMonthly ? DateFormat('MMM yyyy').format(dt) : DateFormat('d MMM yyyy').format(dt)).toList(),
                 ),
               ),
             ),

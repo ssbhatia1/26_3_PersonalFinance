@@ -3,6 +3,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import '../../core/database/app_database.dart';
 import '../../core/database/database_tables.dart';
+import '../models/financial_goal.dart';
 import '../models/transaction.dart';
 
 class TransactionRepository {
@@ -170,6 +171,49 @@ class TransactionRepository {
       await txn.rawUpdate(
         'UPDATE ${DatabaseTables.accounts} SET current_balance = current_balance + ? WHERE id = ?',
         [destDelta, tx.destinationAccountId],
+      );
+    }
+
+    // Sync financial goals linked to source or destination accounts
+    await _syncLinkedGoals(txn, tx.sourceAccountId);
+    if (tx.destinationAccountId != null) {
+      await _syncLinkedGoals(txn, tx.destinationAccountId);
+    }
+  }
+
+  Future<void> _syncLinkedGoals(DatabaseExecutor txn, String? accountId) async {
+    if (accountId == null || accountId.isEmpty) return;
+
+    final goalMaps = await txn.query(
+      DatabaseTables.financialGoals,
+      where: 'linked_account_id = ?',
+      whereArgs: [accountId],
+    );
+    if (goalMaps.isEmpty) return;
+
+    final accMaps = await txn.query(
+      DatabaseTables.accounts,
+      columns: ['current_balance'],
+      where: 'id = ?',
+      whereArgs: [accountId],
+      limit: 1,
+    );
+    if (accMaps.isEmpty) return;
+
+    final balance = (accMaps.first['current_balance'] as num?)?.toDouble() ?? 0.0;
+    final newCurrent = balance < 0 ? 0.0 : balance;
+
+    for (final map in goalMaps) {
+      final goal = FinancialGoal.fromMap(map);
+      final isDone = newCurrent >= goal.targetAmount;
+      await txn.update(
+        DatabaseTables.financialGoals,
+        {
+          'current_amount': newCurrent,
+          'is_completed': isDone ? 1 : 0,
+        },
+        where: 'id = ?',
+        whereArgs: [goal.id],
       );
     }
   }

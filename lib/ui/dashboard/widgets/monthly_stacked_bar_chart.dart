@@ -10,12 +10,16 @@ class MonthlyStackedBarChart extends StatelessWidget {
   final List<TransactionModel> transactions;
   final String currency;
   final double height;
+  final DateTime? startDate;
+  final DateTime? endDate;
 
   const MonthlyStackedBarChart({
     super.key,
     this.transactions = const [],
     required this.currency,
     this.height = 320.0,
+    this.startDate,
+    this.endDate,
   });
 
   @override
@@ -23,28 +27,60 @@ class MonthlyStackedBarChart extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final now = DateTime.now();
-    final months = List.generate(4, (i) => DateTime(now.year, now.month - (3 - i), 1));
+    final start = startDate ?? DateTime(now.year, now.month - 3, 1);
+    final end = endDate ?? now;
+    final diffDays = max(1, end.difference(start).inDays);
+
+    final List<DateTime> timePoints;
+    final bool isMonthly;
+
+    if (diffDays <= 31) {
+      isMonthly = false;
+      final count = min(8, max(4, (diffDays / 7).round() + 1));
+      final step = diffDays / max(1, count - 1);
+      timePoints = List.generate(count, (i) => start.add(Duration(seconds: (i * step * 86400).round())));
+    } else {
+      isMonthly = true;
+      final startMonth = DateTime(start.year, start.month, 1);
+      final endMonth = DateTime(end.year, end.month, 1);
+      final list = <DateTime>[];
+      var curr = startMonth;
+      while (!curr.isAfter(endMonth) && list.length < 12) {
+        list.add(curr);
+        curr = DateTime(curr.year, curr.month + 1, 1);
+      }
+      timePoints = list.isEmpty ? [startMonth] : list;
+    }
 
     // Colors for stack components
     const colorIncome = AppColors.income;     // Green (Inflow)
     const colorExpense = AppColors.expense;   // Red/Coral (Outflow)
     const colorTransfer = Color(0xFF3B82F6);  // Blue (Transfers)
 
-    // Calculate actual monthly sums strictly from stored transactions
     final dataStacks = <List<double>>[];
     double maxMonthTotal = 0.0;
     int totalTransactionsInWindow = 0;
 
-    for (final month in months) {
-      final monthTxs = transactions.where((t) {
-        return t.date.year == month.year && t.date.month == month.month;
-      }).toList();
+    for (final pt in timePoints) {
+      List<TransactionModel> ptTxs;
 
-      totalTransactionsInWindow += monthTxs.length;
+      if (isMonthly) {
+        ptTxs = transactions.where((t) {
+          return t.date.year == pt.year && t.date.month == pt.month;
+        }).toList();
+      } else {
+        final ptStart = DateTime(pt.year, pt.month, pt.day);
+        final ptEnd = DateTime(pt.year, pt.month, pt.day, 23, 59, 59);
+        ptTxs = transactions.where((t) {
+          return !t.date.isBefore(ptStart) && !t.date.isAfter(ptEnd);
+        }).toList();
+      }
 
-      final inc = monthTxs.where((t) => t.isIncome).fold(0.0, (s, t) => s + t.amount);
-      final exp = monthTxs.where((t) => t.isExpense).fold(0.0, (s, t) => s + t.amount);
-      final trans = monthTxs.where((t) => t.isTransfer).fold(0.0, (s, t) => s + t.amount);
+      totalTransactionsInWindow += ptTxs.length;
+
+      final inc = ptTxs.where((t) => t.isIncome).fold(0.0, (s, t) => s + t.amount);
+      final exp = ptTxs.where((t) => t.isExpense).fold(0.0, (s, t) => s + t.amount);
+      final trans = ptTxs.where((t) => t.isTransfer).fold(0.0, (s, t) => s + t.amount);
 
       final total = inc + exp + trans;
       if (total > maxMonthTotal) maxMonthTotal = total;
@@ -52,7 +88,6 @@ class MonthlyStackedBarChart extends StatelessWidget {
       dataStacks.add([inc, exp, trans]);
     }
 
-    // If there is zero transaction activity across the 4 months, show clean empty state
     if (totalTransactionsInWindow == 0 || maxMonthTotal <= 0) {
       return Container(
         height: height,
@@ -71,12 +106,12 @@ class MonthlyStackedBarChart extends StatelessWidget {
               Icon(Icons.bar_chart_rounded, size: 40, color: Colors.grey),
               SizedBox(height: 10),
               Text(
-                'No historical monthly transaction data',
+                'No transaction data in selected timeframe',
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey),
               ),
               SizedBox(height: 4),
               Text(
-                'Monthly capital allocation trends will appear when transactions are recorded.',
+                'Capital allocation trends will appear when transactions are recorded.',
                 style: TextStyle(fontSize: 12, color: Colors.grey),
               ),
             ],
@@ -88,7 +123,7 @@ class MonthlyStackedBarChart extends StatelessWidget {
     final double maxTotal = max(100.0, maxMonthTotal * 1.25);
 
     final groups = <BarChartGroupData>[];
-    for (int i = 0; i < months.length; i++) {
+    for (int i = 0; i < timePoints.length; i++) {
       final stack = dataStacks[i];
       final r1 = stack[0]; // Income
       final r2 = r1 + stack[1]; // Expense
@@ -105,13 +140,15 @@ class MonthlyStackedBarChart extends StatelessWidget {
                 if (stack[1] > 0) BarChartRodStackItem(r1, r2, colorExpense),
                 if (stack[2] > 0) BarChartRodStackItem(r2, r3, colorTransfer),
               ],
-              width: 22,
+              width: timePoints.length > 8 ? 14 : 22,
               borderRadius: BorderRadius.circular(5),
             ),
           ],
         ),
       );
     }
+
+    final xInterval = max(1.0, (timePoints.length / 6).floorToDouble());
 
     return Container(
       height: height,
@@ -148,7 +185,7 @@ class MonthlyStackedBarChart extends StatelessWidget {
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    'Monthly actual income, expense, and account transfers',
+                    'Actual income, expense, and account transfers in timeframe',
                     style: TextStyle(
                       fontSize: 11,
                       color: isDark ? Colors.grey[400] : Colors.grey[600],
@@ -205,13 +242,17 @@ class MonthlyStackedBarChart extends StatelessWidget {
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
+                      interval: xInterval,
                       getTitlesWidget: (value, meta) {
-                        final idx = value.toInt();
-                        if (idx >= 0 && idx < months.length) {
+                        if (value != value.roundToDouble()) return const SizedBox.shrink();
+                        final idx = value.round();
+                        if (idx >= 0 && idx < timePoints.length) {
+                          final dt = timePoints[idx];
+                          final label = isMonthly ? DateFormat('MMM').format(dt) : DateFormat('d MMM').format(dt);
                           return Padding(
                             padding: const EdgeInsets.only(top: 8.0),
                             child: Text(
-                              DateFormat('MMM yyyy').format(months[idx]),
+                              label,
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
@@ -229,9 +270,10 @@ class MonthlyStackedBarChart extends StatelessWidget {
                   touchTooltipData: BarTouchTooltipData(
                     getTooltipItem: (group, groupIndex, rod, rodIndex) {
                       final stack = dataStacks[groupIndex];
-                      final monthName = DateFormat('MMMM yyyy').format(months[groupIndex]);
+                      final dt = timePoints[groupIndex];
+                      final title = isMonthly ? DateFormat('MMMM yyyy').format(dt) : DateFormat('d MMMM yyyy').format(dt);
                       return BarTooltipItem(
-                        '$monthName\n',
+                        '$title\n',
                         const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                         children: [
                           TextSpan(

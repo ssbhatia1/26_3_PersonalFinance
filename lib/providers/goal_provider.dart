@@ -59,6 +59,23 @@ class GoalNotifier extends Notifier<AsyncValue<List<FinancialGoal>>> {
     }
   }
 
+  Future<void> withdraw(
+    String goalId,
+    double amount, {
+    String? receivingAccountId,
+  }) async {
+    await _repo.withdrawFromGoal(
+      goalId,
+      amount,
+      receivingAccountId: receivingAccountId,
+    );
+    await loadGoals();
+    if (receivingAccountId != null && receivingAccountId.isNotEmpty) {
+      await ref.read(accountProvider.notifier).loadAccounts();
+      await ref.read(transactionProvider.notifier).loadTransactions();
+    }
+  }
+
   Future<void> deleteGoal(String id) async {
     await _repo.deleteGoal(id);
     await loadGoals();

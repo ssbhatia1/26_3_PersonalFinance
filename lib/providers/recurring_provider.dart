@@ -104,6 +104,7 @@ class RecurringNotifier extends Notifier<AsyncValue<List<RecurringTransaction>>>
   }
 
   void _refreshRelatedProviders() {
+    ref.invalidate(allTransactionsProvider);
     ref.invalidate(upcomingPaymentsProvider);
     ref.invalidate(paymentRecordsProvider);
     ref.invalidate(paymentAnalyticsProvider);

@@ -322,7 +322,11 @@ class SettingsRepository {
       // Import accounts
       if (data['accounts'] is List) {
         for (final a in data['accounts']) {
-          await txn.insert(DatabaseTables.accounts, Map<String, dynamic>.from(a as Map), conflictAlgorithm: ConflictAlgorithm.replace);
+          final accMap = Map<String, dynamic>.from(a as Map);
+          if (accMap['account_token'] == null || accMap['account_token'].toString().isEmpty) {
+            accMap['account_token'] = accMap['id'] ?? 'tok_${_uuid.v4()}';
+          }
+          await txn.insert(DatabaseTables.accounts, accMap, conflictAlgorithm: ConflictAlgorithm.replace);
           importedAccounts++;
         }
       }

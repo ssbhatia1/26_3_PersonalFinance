@@ -62,35 +62,48 @@ class _GoalFormDialogState extends ConsumerState<GoalFormDialog> {
     if (!_formKey.currentState!.validate()) return;
 
     final name = _nameController.text.trim();
-    final target = double.tryParse(_targetController.text.trim()) ?? 0.0;
-    final current = double.tryParse(_currentController.text.trim()) ?? 0.0;
+    final targetStr = _targetController.text.replaceAll(',', '').trim();
+    final currentStr = _currentController.text.replaceAll(',', '').trim();
+    final target = double.tryParse(targetStr) ?? 0.0;
+    final current = double.tryParse(currentStr) ?? 0.0;
 
     if (target <= 0) return;
 
-    if (widget.goalToEdit != null) {
-      final updated = widget.goalToEdit!.copyWith(
-        name: name,
-        targetAmount: target,
-        currentAmount: current,
-        targetDate: _targetDate,
-        linkedAccountId: _linkedAccountId,
-        isCompleted: current >= target,
-      );
-      await ref.read(goalProvider.notifier).updateGoal(updated);
-    } else {
-      final newGoal = FinancialGoal(
-        id: _uuid.v4(),
-        name: name,
-        targetAmount: target,
-        currentAmount: current,
-        targetDate: _targetDate,
-        linkedAccountId: _linkedAccountId,
-        isCompleted: current >= target,
-      );
-      await ref.read(goalProvider.notifier).createGoal(newGoal);
-    }
+    try {
+      if (widget.goalToEdit != null) {
+        final updated = widget.goalToEdit!.copyWith(
+          name: name,
+          targetAmount: target,
+          currentAmount: current,
+          targetDate: _targetDate,
+          linkedAccountId: _linkedAccountId,
+          isCompleted: current >= target,
+        );
+        await ref.read(goalProvider.notifier).updateGoal(updated);
+      } else {
+        final newGoal = FinancialGoal(
+          id: _uuid.v4(),
+          name: name,
+          targetAmount: target,
+          currentAmount: current,
+          targetDate: _targetDate,
+          linkedAccountId: _linkedAccountId,
+          isCompleted: current >= target,
+        );
+        await ref.read(goalProvider.notifier).createGoal(newGoal);
+      }
 
-    if (mounted) Navigator.pop(context);
+      if (mounted) Navigator.pop(context);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save goal: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -121,7 +134,7 @@ class _GoalFormDialogState extends ConsumerState<GoalFormDialog> {
                       labelText: 'Goal Target Name *',
                       hintText: 'e.g. Emergency Fund, Vacation, Car',
                     ),
-                    validator: (v) => (v == null || v.isEmpty) ? 'Required' : null,
+                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
@@ -132,8 +145,8 @@ class _GoalFormDialogState extends ConsumerState<GoalFormDialog> {
                       hintText: '0.00',
                     ),
                     validator: (v) {
-                      if (v == null || v.isEmpty) return 'Enter amount';
-                      final n = double.tryParse(v);
+                      if (v == null || v.trim().isEmpty) return 'Enter amount';
+                      final n = double.tryParse(v.replaceAll(',', '').trim());
                       if (n == null || n <= 0) return 'Must be greater than 0';
                       return null;
                     },

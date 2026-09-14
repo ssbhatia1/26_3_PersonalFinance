@@ -313,28 +313,29 @@ class AccountRepository {
     for (final acc in accounts) {
       final bal = acc.currentBalance;
       if (acc.isCreditCard) {
-        // Outstanding balance on card is liability (if negative, abs value is debt)
-        if (bal < 0) {
-          totalLiabilities += bal.abs();
-        } else {
-          totalAssets += bal;
-        }
+        // Any credit card balance represents liability
+        totalLiabilities += bal.abs();
       } else if (acc.isLoan) {
         if (acc.type.toLowerCase().contains('lent')) {
-          totalAssets += bal;
+          totalAssets += bal.abs();
         } else {
           totalLiabilities += bal.abs();
         }
       } else {
-        // Standard asset accounts
-        totalAssets += bal;
+        // Standard bank/cash/investment accounts
+        if (bal >= 0) {
+          totalAssets += bal;
+        } else {
+          // Negative balance (overdraft) is liability
+          totalLiabilities += bal.abs();
+        }
         final t = acc.type.toLowerCase();
         if (t.contains('cash')) {
-          totalCash += bal;
+          totalCash += bal > 0 ? bal : 0;
         } else if (t.contains('bank') || t.contains('savings') || t.contains('current') || t.contains('salary') || t.contains('upi') || t.contains('wallet')) {
-          totalBank += bal;
+          totalBank += bal > 0 ? bal : 0;
         } else if (t.contains('fixed') || t.contains('deposit') || t.contains('investment')) {
-          totalInvestments += bal;
+          totalInvestments += bal > 0 ? bal : 0;
         }
       }
     }
@@ -349,7 +350,7 @@ class AccountRepository {
         invWhere += ' AND (account_id IN (SELECT id FROM ${DatabaseTables.accounts} WHERE user_id = ? OR user_id IS NULL) OR account_id IS NULL)';
         invArgs.add(userId);
       } else {
-        invWhere += ' AND account_id IN (SELECT id FROM ${DatabaseTables.accounts} WHERE user_id = ?)';
+        invWhere += ' AND (account_id IN (SELECT id FROM ${DatabaseTables.accounts} WHERE user_id = ?) OR account_id IS NULL)';
         invArgs.add(userId);
       }
     }
@@ -363,6 +364,37 @@ class AccountRepository {
       final curVal = (inv['current_value'] as num?)?.toDouble() ?? 0.0;
       totalAssets += curVal;
       totalInvestments += curVal;
+    }
+
+    // Also include active loans from the loans table
+    String loanWhere = "l.status = 'active'";
+    List<dynamic> loanArgs = [];
+
+    if (userId != null) {
+      if (userId == 'usr_demo_primary') {
+        loanWhere += ' AND (a.user_id = ? OR a.user_id IS NULL OR l.account_id IS NULL)';
+        loanArgs.add(userId);
+      } else {
+        loanWhere += ' AND (a.user_id = ? OR a.user_id IS NULL OR l.account_id IS NULL)';
+        loanArgs.add(userId);
+      }
+    }
+
+    final loanQuery = '''
+      SELECT l.* FROM ${DatabaseTables.loans} l
+      LEFT JOIN ${DatabaseTables.accounts} a ON l.account_id = a.id
+      WHERE $loanWhere
+    ''';
+
+    final loanMaps = await db.rawQuery(loanQuery, loanArgs.isNotEmpty ? loanArgs : null);
+    for (final lMap in loanMaps) {
+      final loanType = (lMap['loan_type'] as String?)?.toLowerCase() ?? '';
+      final outBal = (lMap['outstanding_balance'] as num?)?.toDouble() ?? 0.0;
+      if (loanType == 'borrowed') {
+        totalLiabilities += outBal;
+      } else if (loanType == 'lent') {
+        totalAssets += outBal;
+      }
     }
 
     return {

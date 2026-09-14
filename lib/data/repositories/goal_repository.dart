@@ -21,13 +21,8 @@ class GoalRepository {
     List<dynamic>? whereArgs;
 
     if (userId != null) {
-      if (userId == 'usr_demo_primary') {
-        whereClause = 'WHERE (a.user_id = ? OR a.user_id IS NULL OR g.linked_account_id IS NULL)';
-        whereArgs = [userId];
-      } else {
-        whereClause = 'WHERE a.user_id = ?';
-        whereArgs = [userId];
-      }
+      whereClause = 'WHERE (a.user_id = ? OR a.user_id IS NULL OR g.linked_account_id IS NULL)';
+      whereArgs = [userId];
     }
 
     final query = '''
@@ -127,6 +122,76 @@ class GoalRepository {
           payeePayer: goal.name,
           paymentMethod: 'Bank / Wallet',
           notes: 'Contribution towards goal ${goal.name}',
+          createdAt: now,
+          updatedAt: now,
+        ));
+      }
+    }
+  }
+
+  Future<void> withdrawFromGoal(
+    String goalId,
+    double withdrawAmount, {
+    String? receivingAccountId,
+  }) async {
+    final db = await _dbManager.database;
+    final maps = await db.query(
+      DatabaseTables.financialGoals,
+      where: 'id = ?',
+      whereArgs: [goalId],
+      limit: 1,
+    );
+    if (maps.isEmpty) return;
+
+    final goal = FinancialGoal.fromMap(maps.first);
+    final newCurrent = (goal.currentAmount - withdrawAmount).clamp(0.0, double.infinity);
+    final isDone = newCurrent >= goal.targetAmount;
+
+    await db.update(
+      DatabaseTables.financialGoals,
+      {
+        'current_amount': newCurrent,
+        'is_completed': isDone ? 1 : 0,
+      },
+      where: 'id = ?',
+      whereArgs: [goalId],
+    );
+
+    // If receiving account is provided, record income transaction into account
+    if (receivingAccountId != null && receivingAccountId.isNotEmpty && withdrawAmount > 0) {
+      final now = DateTime.now();
+      final targetGoalAccount = goal.linkedAccountId;
+
+      if (targetGoalAccount != null &&
+          targetGoalAccount.isNotEmpty &&
+          targetGoalAccount != receivingAccountId) {
+        // Inter-account transfer from goal's account back to receiving account
+        await _txRepo.createTransaction(TransactionModel(
+          id: _uuid.v4(),
+          sourceAccountId: targetGoalAccount,
+          destinationAccountId: receivingAccountId,
+          type: 'transfer',
+          amount: withdrawAmount,
+          date: now,
+          description: 'Goal Withdrawal: ${goal.name}',
+          payeePayer: goal.name,
+          paymentMethod: 'Account Transfer',
+          notes: 'Withdrawal from goal ${goal.name}',
+          createdAt: now,
+          updatedAt: now,
+        ));
+      } else {
+        // Income to receiving account from goal withdrawal
+        await _txRepo.createTransaction(TransactionModel(
+          id: _uuid.v4(),
+          sourceAccountId: receivingAccountId,
+          type: 'income',
+          amount: withdrawAmount,
+          date: now,
+          description: 'Goal Withdrawal: ${goal.name}',
+          payeePayer: goal.name,
+          paymentMethod: 'Bank / Wallet',
+          notes: 'Withdrawal from goal ${goal.name}',
           createdAt: now,
           updatedAt: now,
         ));

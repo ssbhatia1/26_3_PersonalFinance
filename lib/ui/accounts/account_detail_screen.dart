@@ -15,7 +15,6 @@ import '../../providers/database_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../settings/export_data_dialog.dart';
 import '../transactions/transaction_form_screen.dart';
-import 'account_adjustment_dialog.dart';
 import 'account_form_dialog.dart';
 import 'delete_account_dialog.dart';
 
@@ -51,16 +50,8 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> with 
     super.dispose();
   }
 
-  void _openAccountAdjustment(BuildContext context, Account account) async {
-    final adjusted = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AccountAdjustmentDialog(account: account),
-    );
-    if (adjusted == true && mounted) {
-      ref.read(accountDetailProvider(widget.accountId).notifier).loadAll();
-      ref.read(accountProvider.notifier).loadAccounts();
-      setState(() {});
-    }
+  void _openAccountAdjustment(BuildContext context, Account account) {
+    _openEditAccount(context, account);
   }
 
   void _openAddTransaction(BuildContext context) {
@@ -1141,8 +1132,10 @@ class _AccountDetailScreenState extends ConsumerState<AccountDetailScreen> with 
                             bottomTitles: AxisTitles(
                               sideTitles: SideTitles(
                                 showTitles: true,
+                                interval: 1,
                                 getTitlesWidget: (val, meta) {
-                                  final idx = val.toInt();
+                                  if (val != val.roundToDouble()) return const SizedBox.shrink();
+                                  final idx = val.round();
                                   if (idx < 0 || idx >= state.spendingTrend.length) return const SizedBox.shrink();
                                   final label = (state.spendingTrend[idx]['shortLabel'] ?? state.spendingTrend[idx]['label']) as String;
                                   return Padding(

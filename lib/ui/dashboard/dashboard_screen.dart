@@ -8,6 +8,7 @@ import '../../providers/account_provider.dart';
 import '../../providers/budget_provider.dart';
 import '../../providers/goal_provider.dart';
 import '../../providers/investment_provider.dart';
+import '../../providers/loan_provider.dart';
 import '../../providers/recurring_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/transaction_provider.dart';
@@ -98,10 +99,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           t.date.isBefore(end.add(const Duration(seconds: 1)));
     }).toList();
 
-    final periodIncome = periodTxs.where((t) => t.isIncome).fold<double>(0.0, (s, t) => s + t.amount);
-    final periodExpense = periodTxs.where((t) => t.isExpense).fold<double>(0.0, (s, t) => s + t.amount);
-    final income = periodIncome > 0 ? periodIncome : (txState.cashFlowSummary['income'] ?? 0.0);
-    final expense = periodExpense > 0 ? periodExpense : (txState.cashFlowSummary['expense'] ?? 0.0);
+    final income = periodTxs.where((t) => t.isIncome).fold<double>(0.0, (s, t) => s + t.amount);
+    final expense = periodTxs.where((t) => t.isExpense).fold<double>(0.0, (s, t) => s + t.amount);
 
     // Financial Runway
     final daysInPeriod = max(1, end.difference(start).inDays + 1);
@@ -162,6 +161,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               ref.read(transactionProvider.notifier).loadTransactions();
               ref.read(recurringProvider.notifier).loadRecurring();
               ref.read(investmentProvider.notifier).loadInvestments();
+              ref.read(loanProvider.notifier).loadLoans();
               ref.read(goalProvider.notifier).loadGoals();
             },
           ),
@@ -175,6 +175,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           await ref.read(transactionProvider.notifier).loadTransactions();
           await ref.read(recurringProvider.notifier).loadRecurring();
           await ref.read(investmentProvider.notifier).loadInvestments();
+          await ref.read(loanProvider.notifier).loadLoans();
           await ref.read(goalProvider.notifier).loadGoals();
         },
         child: SingleChildScrollView(
@@ -220,6 +221,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     runway: runway,
                     liquidAssets: liquidAssets,
                     goals: goals,
+                    startDate: start,
+                    endDate: end,
                   ),
                   const SizedBox(height: 24),
                 ],
@@ -410,6 +413,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     required RunwayMetrics runway,
     required double liquidAssets,
     required List<dynamic> goals,
+    required DateTime startDate,
+    required DateTime endDate,
   }) {
     const double cardHeight = 290.0;
 
@@ -419,6 +424,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         transactions: allTransactions.cast(),
         currency: curr,
         height: cardHeight,
+        startDate: startDate,
+        endDate: endDate,
       ),
       IncomeVsExpenseDonutCard(
         income: income,
@@ -437,6 +444,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         totalInvestmentsValuation: totalInvestments,
         currency: curr,
         height: cardHeight,
+        startDate: startDate,
+        endDate: endDate,
       ),
       FinancialRunwayCard(
         runwayDays: runway.runwayDays,

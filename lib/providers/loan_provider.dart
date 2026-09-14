@@ -66,8 +66,8 @@ class LoanNotifier extends Notifier<LoanState> {
   Future<void> createLoan(Loan loan, {bool disburseToAccount = false}) async {
     await _repository.createLoan(loan, disburseToAccount: disburseToAccount);
     await loadLoans();
+    await ref.read(accountProvider.notifier).loadAccounts();
     if (disburseToAccount) {
-      await ref.read(accountProvider.notifier).loadAccounts();
       await ref.read(transactionProvider.notifier).loadTransactions();
     }
   }
@@ -95,6 +95,7 @@ class LoanNotifier extends Notifier<LoanState> {
   Future<void> deleteLoan(String id) async {
     await _repository.deleteLoan(id);
     await loadLoans();
+    await ref.read(accountProvider.notifier).loadAccounts();
   }
 }
 

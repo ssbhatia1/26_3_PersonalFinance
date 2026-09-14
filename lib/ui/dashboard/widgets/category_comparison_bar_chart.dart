@@ -180,8 +180,10 @@ class CategoryComparisonBarChart extends StatelessWidget {
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
+                      interval: 1,
                       getTitlesWidget: (value, meta) {
-                        final idx = value.toInt();
+                        if (value != value.roundToDouble()) return const SizedBox.shrink();
+                        final idx = value.round();
                         if (idx >= 0 && idx < topCategories.length) {
                           final name = topCategories[idx]['categoryName'] as String;
                           final shortName = name.length > 8 ? '${name.substring(0, 7)}…' : name;
