@@ -116,6 +116,7 @@ class SettingsRepository {
     final settings = await db.query(DatabaseTables.settings);
     final users = await db.query(DatabaseTables.users);
     final accountAdjustments = await db.query(DatabaseTables.accountAdjustments);
+    final attachments = await db.query(DatabaseTables.attachments);
 
     final backupData = {
       'metadata': {
@@ -135,6 +136,7 @@ class SettingsRepository {
           'financialGoals': goals.length,
           'users': users.length,
           'accountAdjustments': accountAdjustments.length,
+          'attachments': attachments.length,
         },
       },
       'accounts': accounts,
@@ -150,6 +152,7 @@ class SettingsRepository {
       'settings': settings,
       'users': users,
       'accountAdjustments': accountAdjustments,
+      'attachments': attachments,
     };
 
     return const JsonEncoder.withIndent('  ').convert(backupData);
@@ -295,6 +298,28 @@ class SettingsRepository {
     return importedCount;
   }
 
+  /// Retrieves existing column names for a SQLite table
+  Future<Set<String>> _getTableColumns(DatabaseExecutor db, String tableName) async {
+    try {
+      final res = await db.rawQuery('PRAGMA table_info($tableName)');
+      return res.map((r) => r['name'].toString()).toSet();
+    } catch (_) {
+      return {};
+    }
+  }
+
+  /// Filters out any keys in rawMap that do not exist as valid columns in the database table
+  Map<String, dynamic> _filterValidColumns(Map<String, dynamic> rawMap, Set<String> validColumns) {
+    if (validColumns.isEmpty) return rawMap;
+    final filtered = <String, dynamic>{};
+    for (final entry in rawMap.entries) {
+      if (validColumns.contains(entry.key)) {
+        filtered[entry.key] = entry.value;
+      }
+    }
+    return filtered;
+  }
+
   /// Imports complete backup JSON into database
   Future<Map<String, int>> importBackupJson(String jsonContent) async {
     final dynamic parsed = jsonDecode(jsonContent);
@@ -310,10 +335,30 @@ class SettingsRepository {
     await db.execute('PRAGMA foreign_keys = OFF;');
     try {
       await db.transaction((txn) async {
+        final userCols = await _getTableColumns(txn, DatabaseTables.users);
+        final categoryCols = await _getTableColumns(txn, DatabaseTables.categories);
+        final settingsCols = await _getTableColumns(txn, DatabaseTables.settings);
+        final accountCols = await _getTableColumns(txn, DatabaseTables.accounts);
+        final transactionCols = await _getTableColumns(txn, DatabaseTables.transactions);
+        final budgetCols = await _getTableColumns(txn, DatabaseTables.budgets);
+        final recurringCols = await _getTableColumns(txn, DatabaseTables.recurringTransactions);
+        final loanCols = await _getTableColumns(txn, DatabaseTables.loans);
+        final loanRepaymentCols = await _getTableColumns(txn, DatabaseTables.loanRepayments);
+        final investmentCols = await _getTableColumns(txn, DatabaseTables.investments);
+        final goalCols = await _getTableColumns(txn, DatabaseTables.financialGoals);
+        final adjustmentCols = await _getTableColumns(txn, DatabaseTables.accountAdjustments);
+        final paymentRecordCols = await _getTableColumns(txn, DatabaseTables.paymentRecords);
+        final attachmentCols = await _getTableColumns(txn, DatabaseTables.attachments);
+
         // 1. Import users (MUST be imported before accounts due to foreign key constraints on user_id)
         if (data['users'] is List) {
           for (final u in data['users']) {
-            await txn.insert(DatabaseTables.users, Map<String, dynamic>.from(u as Map), conflictAlgorithm: ConflictAlgorithm.replace);
+            final uMap = Map<String, dynamic>.from(u as Map);
+            await txn.insert(
+              DatabaseTables.users,
+              _filterValidColumns(uMap, userCols),
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
           }
         }
 
@@ -327,7 +372,11 @@ class SettingsRepository {
             final map = Map<String, dynamic>.from(c as Map);
             map.remove('created_at');
             map.remove('updated_at');
-            await txn.insert(DatabaseTables.categories, map, conflictAlgorithm: ConflictAlgorithm.replace);
+            await txn.insert(
+              DatabaseTables.categories,
+              _filterValidColumns(map, categoryCols),
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
           }
         }
 
@@ -338,7 +387,12 @@ class SettingsRepository {
         // 3. Import settings
         if (data['settings'] is List) {
           for (final s in data['settings']) {
-            await txn.insert(DatabaseTables.settings, Map<String, dynamic>.from(s as Map), conflictAlgorithm: ConflictAlgorithm.replace);
+            final sMap = Map<String, dynamic>.from(s as Map);
+            await txn.insert(
+              DatabaseTables.settings,
+              _filterValidColumns(sMap, settingsCols),
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
           }
         }
 
@@ -353,7 +407,11 @@ class SettingsRepository {
             if (accMap['user_id'] != null && !validUserIds.contains(accMap['user_id'].toString())) {
               accMap['user_id'] = validUserIds.isNotEmpty ? validUserIds.first : null;
             }
-            await txn.insert(DatabaseTables.accounts, accMap, conflictAlgorithm: ConflictAlgorithm.replace);
+            await txn.insert(
+              DatabaseTables.accounts,
+              _filterValidColumns(accMap, accountCols),
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
             importedAccounts++;
           }
         }
@@ -369,7 +427,32 @@ class SettingsRepository {
             if (txMap['category_id'] != null && !validCategoryIds.contains(txMap['category_id'].toString())) {
               txMap['category_id'] = null;
             }
-            await txn.insert(DatabaseTables.transactions, txMap, conflictAlgorithm: ConflictAlgorithm.replace);
+
+            // Inline attachment migration: if transaction has inline attachment_path (e.g. from PC/legacy backup)
+            final attPath = txMap['attachment_path']?.toString();
+            if (attPath != null && attPath.trim().isNotEmpty && attPath != 'null') {
+              final attMap = {
+                'id': 'att_${_uuid.v4()}',
+                'transaction_id': txMap['id'],
+                'account_id': txMap['source_account_id'],
+                'file_name': txMap['attachment_name']?.toString() ?? p.basename(attPath),
+                'file_path': attPath,
+                'file_type': txMap['attachment_type']?.toString() ?? 'image',
+                'file_size': (txMap['attachment_size'] is num) ? (txMap['attachment_size'] as num).toInt() : 0,
+                'uploaded_at': txMap['created_at']?.toString() ?? DateTime.now().toIso8601String(),
+              };
+              await txn.insert(
+                DatabaseTables.attachments,
+                _filterValidColumns(attMap, attachmentCols),
+                conflictAlgorithm: ConflictAlgorithm.replace,
+              );
+            }
+
+            await txn.insert(
+              DatabaseTables.transactions,
+              _filterValidColumns(txMap, transactionCols),
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
             importedTransactions++;
           }
         }
@@ -385,7 +468,11 @@ class SettingsRepository {
             if (bMap['category_id'] != null && !validCategoryIds.contains(bMap['category_id'].toString())) {
               bMap['category_id'] = null;
             }
-            await txn.insert(DatabaseTables.budgets, bMap, conflictAlgorithm: ConflictAlgorithm.replace);
+            await txn.insert(
+              DatabaseTables.budgets,
+              _filterValidColumns(bMap, budgetCols),
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
             importedBudgets++;
           }
         }
@@ -397,7 +484,11 @@ class SettingsRepository {
             if (rMap['category_id'] != null && !validCategoryIds.contains(rMap['category_id'].toString())) {
               rMap['category_id'] = null;
             }
-            await txn.insert(DatabaseTables.recurringTransactions, rMap, conflictAlgorithm: ConflictAlgorithm.replace);
+            await txn.insert(
+              DatabaseTables.recurringTransactions,
+              _filterValidColumns(rMap, recurringCols),
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
           }
         }
 
@@ -408,7 +499,11 @@ class SettingsRepository {
             if (lMap['account_id'] != null && !validAccountIds.contains(lMap['account_id'].toString())) {
               lMap['account_id'] = null;
             }
-            await txn.insert(DatabaseTables.loans, lMap, conflictAlgorithm: ConflictAlgorithm.replace);
+            await txn.insert(
+              DatabaseTables.loans,
+              _filterValidColumns(lMap, loanCols),
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
           }
         }
 
@@ -419,7 +514,11 @@ class SettingsRepository {
             if (lrMap['account_id'] != null && !validAccountIds.contains(lrMap['account_id'].toString())) {
               lrMap['account_id'] = null;
             }
-            await txn.insert(DatabaseTables.loanRepayments, lrMap, conflictAlgorithm: ConflictAlgorithm.replace);
+            await txn.insert(
+              DatabaseTables.loanRepayments,
+              _filterValidColumns(lrMap, loanRepaymentCols),
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
           }
         }
 
@@ -430,7 +529,11 @@ class SettingsRepository {
             if (invMap['linked_account_id'] != null && !validAccountIds.contains(invMap['linked_account_id'].toString())) {
               invMap['linked_account_id'] = null;
             }
-            await txn.insert(DatabaseTables.investments, invMap, conflictAlgorithm: ConflictAlgorithm.replace);
+            await txn.insert(
+              DatabaseTables.investments,
+              _filterValidColumns(invMap, investmentCols),
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
           }
         }
 
@@ -444,7 +547,11 @@ class SettingsRepository {
             if (gMap['account_id'] != null && !validAccountIds.contains(gMap['account_id'].toString())) {
               gMap['account_id'] = null;
             }
-            await txn.insert(DatabaseTables.financialGoals, gMap, conflictAlgorithm: ConflictAlgorithm.replace);
+            await txn.insert(
+              DatabaseTables.financialGoals,
+              _filterValidColumns(gMap, goalCols),
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
           }
         }
 
@@ -458,7 +565,11 @@ class SettingsRepository {
             if (adjMap['transaction_id'] != null && !validTxIds.contains(adjMap['transaction_id'].toString())) {
               adjMap['transaction_id'] = null;
             }
-            await txn.insert(DatabaseTables.accountAdjustments, adjMap, conflictAlgorithm: ConflictAlgorithm.replace);
+            await txn.insert(
+              DatabaseTables.accountAdjustments,
+              _filterValidColumns(adjMap, adjustmentCols),
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
           }
         }
 
@@ -469,7 +580,29 @@ class SettingsRepository {
             if (pMap['category_id'] != null && !validCategoryIds.contains(pMap['category_id'].toString())) {
               pMap['category_id'] = null;
             }
-            await txn.insert(DatabaseTables.paymentRecords, pMap, conflictAlgorithm: ConflictAlgorithm.replace);
+            await txn.insert(
+              DatabaseTables.paymentRecords,
+              _filterValidColumns(pMap, paymentRecordCols),
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
+          }
+        }
+
+        // 14. Import explicit attachments (depends on transactions & accounts)
+        if (data['attachments'] is List) {
+          for (final att in data['attachments']) {
+            final attMap = Map<String, dynamic>.from(att as Map);
+            if (attMap['transaction_id'] != null && !validTxIds.contains(attMap['transaction_id'].toString())) {
+              attMap['transaction_id'] = null;
+            }
+            if (attMap['account_id'] != null && !validAccountIds.contains(attMap['account_id'].toString())) {
+              attMap['account_id'] = null;
+            }
+            await txn.insert(
+              DatabaseTables.attachments,
+              _filterValidColumns(attMap, attachmentCols),
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
           }
         }
       });

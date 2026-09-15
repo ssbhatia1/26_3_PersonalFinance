@@ -337,5 +337,77 @@ void main() {
       expect(restoredAcc, isNotNull);
       expect(restoredAcc!.userId, '3a032e81-a02d-431a-8aa3-3f1d4f7cc8be');
     });
+
+    test('importBackupJson succeeds when PC backup contains attachment_path or unrecognised columns in transactions', () async {
+      final pcBackupData = {
+        'accounts': [
+          {
+            'id': '416bf4e7-b2e7-4faa-b6e5-e74515747dd6',
+            'name': 'Salary Account',
+            'type': 'checking',
+            'opening_balance': 0.0,
+            'current_balance': 50000.0,
+            'currency': 'INR',
+            'status': 'active',
+            'is_deleted': 0,
+          }
+        ],
+        'categories': [
+          {
+            'id': 'cat_inc_salary',
+            'name': 'Salary',
+            'type': 'income',
+            'icon': 'work',
+            'color': '0xFF10B981',
+          }
+        ],
+        'transactions': [
+          {
+            'id': '46b75cf8-543c-4da8-b4c0-adadedd30b01',
+            'source_account_id': '416bf4e7-b2e7-4faa-b6e5-e74515747dd6',
+            'destination_account_id': null,
+            'type': 'income',
+            'category_id': 'cat_inc_salary',
+            'amount': 50000.0,
+            'date': '2026-09-14T05:22:45.991456',
+            'description': 'Salary Credited',
+            'payee_payer': 'Employer Inc',
+            'payment_method': null,
+            'reference_number': null,
+            'status': 'completed',
+            'is_recurring_instance_of': null,
+            'notes': null,
+            'is_reconciled': 0,
+            'created_at': '2026-09-14T05:23:00.571574',
+            'updated_at': '2026-09-14T05:23:15.198061',
+            'is_deleted': 0,
+            'attachment_path': '/storage/emulated/0/Download/receipt.png',
+            'attachment_name': 'receipt.png',
+            'attachment_type': 'image/png',
+            'attachment_size': 2048,
+            'some_extra_pc_field': 'unsupported_value',
+          }
+        ],
+      };
+
+      final jsonString = jsonEncode(pcBackupData);
+      final importStats = await settingsRepo.importBackupJson(jsonString);
+
+      expect(importStats['transactions'], 1);
+      final restoredTx = await txRepo.getTransactionById('46b75cf8-543c-4da8-b4c0-adadedd30b01');
+      expect(restoredTx, isNotNull);
+      expect(restoredTx!.amount, 50000.0);
+      expect(restoredTx.description, 'Salary Credited');
+
+      // Verify attachment was migrated to attachments table
+      final attachments = await (await testDb.database).query(
+        'attachments',
+        where: 'transaction_id = ?',
+        whereArgs: ['46b75cf8-543c-4da8-b4c0-adadedd30b01'],
+      );
+      expect(attachments.length, 1);
+      expect(attachments.first['file_name'], 'receipt.png');
+      expect(attachments.first['file_path'], '/storage/emulated/0/Download/receipt.png');
+    });
   });
 }
