@@ -16,7 +16,7 @@ class SplashScreen extends ConsumerStatefulWidget {
 
   const SplashScreen({
     super.key,
-    this.minDuration = const Duration(milliseconds: 1900),
+    this.minDuration = const Duration(milliseconds: 2500),
     this.onFinished,
   });
 
@@ -56,20 +56,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _animController,
-        curve: const Interval(0.1, 0.7, curve: Curves.easeIn),
+        curve: const Interval(0.0, 0.5, curve: Curves.easeIn),
       ),
     );
 
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
-      CurvedAnimation(
-        parent: _animController,
-        curve: const Interval(0.6, 1.0, curve: Curves.easeInOut),
-      ),
-    );
-
-    if (widget.minDuration > Duration.zero) {
-      _animController.repeat(reverse: true);
-    }
+    _animController.forward();
 
     _startSplashLifecycle();
   }
@@ -229,10 +220,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
               builder: (context, child) {
                 return Opacity(
                   opacity: _fadeAnimation.value.clamp(0.0, 1.0),
-                  child: Transform.scale(
-                    scale: _scaleAnimation.value * _pulseAnimation.value,
-                    child: child,
-                  ),
+                  child: child,
                 );
               },
               child: Column(

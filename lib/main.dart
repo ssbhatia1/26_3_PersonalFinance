@@ -29,7 +29,7 @@ class PersonalFinanceApp extends ConsumerWidget {
 
   const PersonalFinanceApp({
     super.key,
-    this.minSplashDuration = const Duration(milliseconds: 1900),
+    this.minSplashDuration = const Duration(milliseconds: 2500),
   });
 
   @override
@@ -52,7 +52,7 @@ class AppEntryGate extends ConsumerStatefulWidget {
 
   const AppEntryGate({
     super.key,
-    this.minSplashDuration = const Duration(milliseconds: 1900),
+    this.minSplashDuration = const Duration(milliseconds: 2500),
   });
 
   @override
