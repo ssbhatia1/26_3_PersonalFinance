@@ -308,101 +308,113 @@ class SettingsRepository {
     int importedTransactions = 0;
     int importedBudgets = 0;
 
-    await db.transaction((txn) async {
-      // Import categories
-      if (data['categories'] is List) {
-        for (final c in data['categories']) {
-          final map = Map<String, dynamic>.from(c as Map);
-          map.remove('created_at');
-          map.remove('updated_at');
-          await txn.insert(DatabaseTables.categories, map, conflictAlgorithm: ConflictAlgorithm.replace);
-        }
-      }
-
-      // Import accounts
-      if (data['accounts'] is List) {
-        for (final a in data['accounts']) {
-          final accMap = Map<String, dynamic>.from(a as Map);
-          if (accMap['account_token'] == null || accMap['account_token'].toString().isEmpty) {
-            accMap['account_token'] = accMap['id'] ?? 'tok_${_uuid.v4()}';
+    await db.execute('PRAGMA foreign_keys = OFF;');
+    try {
+      await db.transaction((txn) async {
+        // 1. Import users (MUST be imported before accounts due to foreign key constraints on user_id)
+        if (data['users'] is List) {
+          for (final u in data['users']) {
+            await txn.insert(DatabaseTables.users, Map<String, dynamic>.from(u as Map), conflictAlgorithm: ConflictAlgorithm.replace);
           }
-          await txn.insert(DatabaseTables.accounts, accMap, conflictAlgorithm: ConflictAlgorithm.replace);
-          importedAccounts++;
         }
-      }
 
-      // Import transactions
-      if (data['transactions'] is List) {
-        for (final t in data['transactions']) {
-          await txn.insert(DatabaseTables.transactions, Map<String, dynamic>.from(t as Map), conflictAlgorithm: ConflictAlgorithm.replace);
-          importedTransactions++;
+        // 2. Import categories
+        if (data['categories'] is List) {
+          for (final c in data['categories']) {
+            final map = Map<String, dynamic>.from(c as Map);
+            map.remove('created_at');
+            map.remove('updated_at');
+            await txn.insert(DatabaseTables.categories, map, conflictAlgorithm: ConflictAlgorithm.replace);
+          }
         }
-      }
 
-      // Import budgets
-      if (data['budgets'] is List) {
-        for (final b in data['budgets']) {
-          await txn.insert(DatabaseTables.budgets, Map<String, dynamic>.from(b as Map), conflictAlgorithm: ConflictAlgorithm.replace);
-          importedBudgets++;
+        // 3. Import settings
+        if (data['settings'] is List) {
+          for (final s in data['settings']) {
+            await txn.insert(DatabaseTables.settings, Map<String, dynamic>.from(s as Map), conflictAlgorithm: ConflictAlgorithm.replace);
+          }
         }
-      }
 
-      // Import recurring transactions
-      if (data['recurringTransactions'] is List) {
-        for (final r in data['recurringTransactions']) {
-          await txn.insert(DatabaseTables.recurringTransactions, Map<String, dynamic>.from(r as Map), conflictAlgorithm: ConflictAlgorithm.replace);
+        // 4. Import accounts (depends on users)
+        if (data['accounts'] is List) {
+          for (final a in data['accounts']) {
+            final accMap = Map<String, dynamic>.from(a as Map);
+            if (accMap['account_token'] == null || accMap['account_token'].toString().isEmpty) {
+              accMap['account_token'] = accMap['id'] ?? 'tok_${_uuid.v4()}';
+            }
+            await txn.insert(DatabaseTables.accounts, accMap, conflictAlgorithm: ConflictAlgorithm.replace);
+            importedAccounts++;
+          }
         }
-      }
 
-      // Import payment records
-      if (data['paymentRecords'] is List) {
-        for (final p in data['paymentRecords']) {
-          await txn.insert(DatabaseTables.paymentRecords, Map<String, dynamic>.from(p as Map), conflictAlgorithm: ConflictAlgorithm.replace);
+        // 5. Import transactions (depends on accounts & categories)
+        if (data['transactions'] is List) {
+          for (final t in data['transactions']) {
+            await txn.insert(DatabaseTables.transactions, Map<String, dynamic>.from(t as Map), conflictAlgorithm: ConflictAlgorithm.replace);
+            importedTransactions++;
+          }
         }
-      }
 
-      // Import loans
-      if (data['loans'] is List) {
-        for (final l in data['loans']) {
-          await txn.insert(DatabaseTables.loans, Map<String, dynamic>.from(l as Map), conflictAlgorithm: ConflictAlgorithm.replace);
+        // 6. Import budgets (depends on categories)
+        if (data['budgets'] is List) {
+          for (final b in data['budgets']) {
+            await txn.insert(DatabaseTables.budgets, Map<String, dynamic>.from(b as Map), conflictAlgorithm: ConflictAlgorithm.replace);
+            importedBudgets++;
+          }
         }
-      }
 
-      // Import loan repayments
-      if (data['loanRepayments'] is List) {
-        for (final lr in data['loanRepayments']) {
-          await txn.insert(DatabaseTables.loanRepayments, Map<String, dynamic>.from(lr as Map), conflictAlgorithm: ConflictAlgorithm.replace);
+        // 7. Import recurring transactions (depends on accounts & categories)
+        if (data['recurringTransactions'] is List) {
+          for (final r in data['recurringTransactions']) {
+            await txn.insert(DatabaseTables.recurringTransactions, Map<String, dynamic>.from(r as Map), conflictAlgorithm: ConflictAlgorithm.replace);
+          }
         }
-      }
 
-      // Import investments
-      if (data['investments'] is List) {
-        for (final inv in data['investments']) {
-          await txn.insert(DatabaseTables.investments, Map<String, dynamic>.from(inv as Map), conflictAlgorithm: ConflictAlgorithm.replace);
+        // 8. Import loans (depends on accounts)
+        if (data['loans'] is List) {
+          for (final l in data['loans']) {
+            await txn.insert(DatabaseTables.loans, Map<String, dynamic>.from(l as Map), conflictAlgorithm: ConflictAlgorithm.replace);
+          }
         }
-      }
 
-      // Import goals
-      if (data['financialGoals'] is List) {
-        for (final g in data['financialGoals']) {
-          await txn.insert(DatabaseTables.financialGoals, Map<String, dynamic>.from(g as Map), conflictAlgorithm: ConflictAlgorithm.replace);
+        // 9. Import loan repayments (depends on loans & accounts)
+        if (data['loanRepayments'] is List) {
+          for (final lr in data['loanRepayments']) {
+            await txn.insert(DatabaseTables.loanRepayments, Map<String, dynamic>.from(lr as Map), conflictAlgorithm: ConflictAlgorithm.replace);
+          }
         }
-      }
 
-      // Import users
-      if (data['users'] is List) {
-        for (final u in data['users']) {
-          await txn.insert(DatabaseTables.users, Map<String, dynamic>.from(u as Map), conflictAlgorithm: ConflictAlgorithm.replace);
+        // 10. Import investments (depends on accounts)
+        if (data['investments'] is List) {
+          for (final inv in data['investments']) {
+            await txn.insert(DatabaseTables.investments, Map<String, dynamic>.from(inv as Map), conflictAlgorithm: ConflictAlgorithm.replace);
+          }
         }
-      }
 
-      // Import account adjustments
-      if (data['accountAdjustments'] is List) {
-        for (final adj in data['accountAdjustments']) {
-          await txn.insert(DatabaseTables.accountAdjustments, Map<String, dynamic>.from(adj as Map), conflictAlgorithm: ConflictAlgorithm.replace);
+        // 11. Import goals (depends on users & accounts)
+        if (data['financialGoals'] is List) {
+          for (final g in data['financialGoals']) {
+            await txn.insert(DatabaseTables.financialGoals, Map<String, dynamic>.from(g as Map), conflictAlgorithm: ConflictAlgorithm.replace);
+          }
         }
-      }
-    });
+
+        // 12. Import account adjustments (depends on transactions & accounts)
+        if (data['accountAdjustments'] is List) {
+          for (final adj in data['accountAdjustments']) {
+            await txn.insert(DatabaseTables.accountAdjustments, Map<String, dynamic>.from(adj as Map), conflictAlgorithm: ConflictAlgorithm.replace);
+          }
+        }
+
+        // 13. Import payment records (depends on recurring transactions, transactions, & accounts)
+        if (data['paymentRecords'] is List) {
+          for (final p in data['paymentRecords']) {
+            await txn.insert(DatabaseTables.paymentRecords, Map<String, dynamic>.from(p as Map), conflictAlgorithm: ConflictAlgorithm.replace);
+          }
+        }
+      });
+    } finally {
+      await db.execute('PRAGMA foreign_keys = ON;');
+    }
 
     return {
       'accounts': importedAccounts,

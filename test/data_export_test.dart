@@ -299,5 +299,43 @@ void main() {
       final importedTx = allTxs.firstWhere((t) => t.id == 'tx_imported_book');
       expect(importedTx.description, 'Flutter Architecture Book');
     });
+
+    test('importBackupJson succeeds when accounts reference user_id foreign key in users table', () async {
+      final backupData = {
+        'users': [
+          {
+            'id': '3a032e81-a02d-431a-8aa3-3f1d4f7cc8be',
+            'username': 'testuser',
+            'email': 'test@example.com',
+            'full_name': 'Test User',
+            'password_hash': 'hash123',
+            'salt': 'salt123',
+            'created_at': DateTime.now().toIso8601String(),
+            'updated_at': DateTime.now().toIso8601String(),
+          }
+        ],
+        'accounts': [
+          {
+            'id': '7ecff834-bc64-4578-bc68-cdd2200b6104',
+            'user_id': '3a032e81-a02d-431a-8aa3-3f1d4f7cc8be',
+            'name': 'Cash',
+            'type': 'Cash',
+            'opening_balance': 5000.0,
+            'current_balance': 572800.0,
+            'currency': 'INR',
+            'status': 'active',
+            'is_deleted': 0,
+          }
+        ],
+      };
+
+      final jsonString = jsonEncode(backupData);
+      final importStats = await settingsRepo.importBackupJson(jsonString);
+
+      expect(importStats['accounts'], 1);
+      final restoredAcc = await accountRepo.getAccountById('7ecff834-bc64-4578-bc68-cdd2200b6104');
+      expect(restoredAcc, isNotNull);
+      expect(restoredAcc!.userId, '3a032e81-a02d-431a-8aa3-3f1d4f7cc8be');
+    });
   });
 }
